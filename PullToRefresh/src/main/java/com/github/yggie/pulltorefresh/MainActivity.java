@@ -27,7 +27,7 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        PullableListView lv = ((PullableListView)findViewById(R.id.list_view));
+        PullListLayout lv = ((PullListLayout)findViewById(R.id.list_view));
         listView = lv.getListView();
         adapterList = defaultList();
         adapter = new SimpleAdapter(this, adapterList, R.layout.item, new String[] {"title", "content"},
@@ -35,22 +35,29 @@ public class MainActivity extends Activity {
         listView.setAdapter(adapter);
 
         // adds dummy listeners
-        lv.addOnTopRefreshRequestListener(new PullableListView.OnTopRefreshRequestListener() {
+        lv.addOnTopRefreshRequestListener(new PullListLayout.OnPullEventListener() {
+
             @Override
-            public void onTopRefreshRequest(final PullableListView.OnRequestCompleteListener listener) {
+            public void onRefreshRequest(final PullListLayout.OnRequestCompleteListener listener) {
                 handler.postDelayed(new Runnable() {
                     @Override
                     public void run() {
                         listener.onRequestComplete();
                     }
                 }, 1000);
+            }
+
+            @Override
+            public void onThresholdPassed() {
+                // do nothing at the moment
             }
         });
 
         // adds dummy listener
-        lv.addOnBottomRefreshRequestListener(new PullableListView.OnBottomRefreshRequestListener() {
+        lv.addOnBottomRefreshRequestListener(new PullListLayout.OnPullEventListener() {
+
             @Override
-            public void onBottomRefreshRequest(final PullableListView.OnRequestCompleteListener listener) {
+            public void onRefreshRequest(final PullListLayout.OnRequestCompleteListener listener) {
                 handler.postDelayed(new Runnable() {
                     @Override
                     public void run() {
@@ -58,7 +65,14 @@ public class MainActivity extends Activity {
                     }
                 }, 1000);
             }
+
+            @Override
+            public void onThresholdPassed() {
+                // do nothing at the moment
+            }
         });
+
+//        lv.enableTopPull(false);
     }
 
     @Override

@@ -14,33 +14,34 @@ import android.widget.RelativeLayout;
 
 import java.util.LinkedList;
 
-public class PullableListView extends RelativeLayout {
+public class PullListLayout extends RelativeLayout {
 
     /** the contained views */
     private View topPulledView;
     private ListView listView;
     private View bottomPulledView;
 
+    /** a handler for posting Runnable */
     private final Handler handler = new Handler();
 
     /** handles scrolling behaviour */
     private final PullToRefreshScroller scroller = new PullToRefreshScroller(this);
 
     /** Listeners */
-    private LinkedList<OnTopRefreshRequestListener> onTopRefreshRequestListenerList;
-    private LinkedList<OnBottomRefreshRequestListener> onBottomRefreshRequestListenerLinkedList;
+    private final LinkedList<OnPullEventListener> onTopPullEventListenerList = new LinkedList<OnPullEventListener>();
+    private final LinkedList<OnPullEventListener> onBottomPullEventListenerList = new LinkedList<OnPullEventListener>();
 
-    public PullableListView(Context context) {
+    public PullListLayout(Context context) {
         super(context);
         initialize();
     }
 
-    public PullableListView(Context context, AttributeSet attrs) {
+    public PullListLayout(Context context, AttributeSet attrs) {
         super(context, attrs);
         initialize();
     }
 
-    public PullableListView(Context context, AttributeSet attrs, int defaultStyle) {
+    public PullListLayout(Context context, AttributeSet attrs, int defaultStyle) {
         super(context, attrs, defaultStyle);
         initialize();
     }
@@ -51,10 +52,6 @@ public class PullableListView extends RelativeLayout {
 
     private void initialize() {
         final Context context = getContext();
-
-        // initialize listener lists
-        onTopRefreshRequestListenerList = new LinkedList<OnTopRefreshRequestListener>();
-        onBottomRefreshRequestListenerLinkedList = new LinkedList<OnBottomRefreshRequestListener>();
 
         // setup the list view
         listView = new ReportingListView(context);
@@ -95,7 +92,7 @@ public class PullableListView extends RelativeLayout {
     /**
      * A convenient method to set the layout offset
      *
-     * @param offset
+     * @param offset The offset in pixels
      */
 
     private void setPullOffset(int offset) {
@@ -109,8 +106,18 @@ public class PullableListView extends RelativeLayout {
      */
 
     private void onTopRefreshRequest() {
-        for (OnTopRefreshRequestListener l : onTopRefreshRequestListenerList) {
-            l.onTopRefreshRequest(scroller);
+        for (OnPullEventListener l : onTopPullEventListenerList) {
+            l.onRefreshRequest(scroller);
+        }
+    }
+
+    /**
+     * Called when the top view has been pulled beyond the threshold value
+     */
+
+    private void onTopThresholdPassed() {
+        for (OnPullEventListener l : onTopPullEventListenerList) {
+            l.onThresholdPassed();
         }
     }
 
@@ -119,49 +126,59 @@ public class PullableListView extends RelativeLayout {
      */
 
     private void onBottomRefreshRequest() {
-        for (OnBottomRefreshRequestListener l : onBottomRefreshRequestListenerLinkedList) {
-            l.onBottomRefreshRequest(scroller);
+        for (OnPullEventListener l : onBottomPullEventListenerList) {
+            l.onRefreshRequest(scroller);
+        }
+    }
+
+    /**
+     * Called when the bottom view has been pulled beyond the threshold
+     */
+
+    private void onBottomThresholdPassed() {
+        for (OnPullEventListener l : onBottomPullEventListenerList) {
+            l.onThresholdPassed();
         }
     }
 
     /**
      * Adds a listener for top refresh requests
      *
-     * @param listener
+     * @param listener The listener to add
      */
 
-    public void addOnTopRefreshRequestListener(OnTopRefreshRequestListener listener) {
-        onTopRefreshRequestListenerList.add(listener);
+    public void addOnTopRefreshRequestListener(OnPullEventListener listener) {
+        onTopPullEventListenerList.add(listener);
     }
 
     /**
      * Removes a listener for top refresh requests
      *
-     * @param listener
+     * @param listener The listener to remove
      */
 
-    public void removeOnTopRefreshRequestListener(OnTopRefreshRequestListener listener) {
-        onTopRefreshRequestListenerList.remove(listener);
+    public void removeOnTopRefreshRequestListener(OnPullEventListener listener) {
+        onTopPullEventListenerList.remove(listener);
     }
 
     /**
      * Adds a listener for bottom refresh requests
      *
-     * @param listener
+     * @param listener The listener to add
      */
 
-    public void addOnBottomRefreshRequestListener(OnBottomRefreshRequestListener listener) {
-        onBottomRefreshRequestListenerLinkedList.add(listener);
+    public void addOnBottomRefreshRequestListener(OnPullEventListener listener) {
+        onBottomPullEventListenerList.add(listener);
     }
 
     /**
      * Removes a listener for bottom refresh requests
      *
-     * @param listener
+     * @param listener The listener to remove
      */
 
-    public void removeOnBottomRefreshRequestListener(OnBottomRefreshRequestListener listener) {
-        onBottomRefreshRequestListenerLinkedList.remove(listener);
+    public void removeOnBottomRefreshRequestListener(OnPullEventListener listener) {
+        onBottomPullEventListenerList.remove(listener);
     }
 
     /**
@@ -175,13 +192,33 @@ public class PullableListView extends RelativeLayout {
     }
 
     /**
+     * Enables or disables the top pull behaviour
+     *
+     * @param enable Flag indicating if the behaviour should be enabled
+     */
+
+    public void enableTopPull(boolean enable) {
+        scroller.enableTopPull(enable);
+    }
+
+    /**
+     * Enables or disables the bottom pull behaviour
+     *
+     * @param enable Flag indicating if the behaviour should be enabled
+     */
+
+    public void enableBottomPull(boolean enable) {
+        scroller.enableBottomPull(enable);
+    }
+
+    /**
      * Overrides the onLayout to catch layout events. This is to recalibrate scrolling measurements
      *
-     * @param changed
-     * @param left
-     * @param top
-     * @param right
-     * @param bottom
+     * @param changed If the layout has changed
+     * @param left Left boundary
+     * @param top Top boundary
+     * @param right Right boundary
+     * @param bottom Bottom boundary
      */
 
     @Override
@@ -199,16 +236,9 @@ public class PullableListView extends RelativeLayout {
      * Listens for when the waiting state is reached for the top pulled view
      */
 
-    public static interface OnTopRefreshRequestListener {
-        public void onTopRefreshRequest(OnRequestCompleteListener listener);
-    }
-
-    /**
-     * Listens for when the waiting state is reached for the bottom pulled view
-     */
-
-    public static interface OnBottomRefreshRequestListener {
-        public void onBottomRefreshRequest(OnRequestCompleteListener listener);
+    public static interface OnPullEventListener {
+        public void onRefreshRequest(OnRequestCompleteListener listener);
+        public void onThresholdPassed();
     }
 
     /**
@@ -240,7 +270,7 @@ public class PullableListView extends RelativeLayout {
         @Override
         protected void onOverScrolled(int scrollX, int scrollY, boolean clampedX, boolean clampedY) {
             super.onOverScrolled(scrollX, scrollY, clampedX, clampedY);
-            scroller.setOverscrolled(clampedY);
+            scroller.onOverScrolled(clampedY, scrollY);
         }
 
         @Override
@@ -254,16 +284,14 @@ public class PullableListView extends RelativeLayout {
      */
 
     private static class PullToRefreshScroller implements Runnable,
-            PullableListView.OnRequestCompleteListener {
+            PullListLayout.OnRequestCompleteListener {
 
         private static final String TAG = PullToRefreshScroller.class.getSimpleName();
 
-        private static final float OVERSCROLL_THRESHOLD = 2.0f;
+        private static final float OVER_SCROLL_THRESHOLD = 2.0f;
 
-        private boolean running;
-
-        // pulling behaviour
-        private boolean overscrolled;
+        /** related to pulling behaviour */
+        private boolean isOverScrolled;
         private float totalOffset;
         private int previousIntOffset;
         private float totalTravel;
@@ -272,14 +300,16 @@ public class PullableListView extends RelativeLayout {
         private float easing;
 
         /** specific to top pull behaviour */
+        private boolean topPullEnabled;
         private int topContentSize;
         private float topMaxLength;
 
         /** specific to bottom pull behaviour */
+        private boolean bottomPullEnabled;
         private int bottomContentSize;
         private float bottomMaxLength;
 
-        private final PullableListView parent;
+        private final PullListLayout parent;
 
         /** scrolling state */
         private State state;
@@ -302,10 +332,10 @@ public class PullableListView extends RelativeLayout {
         /**
          * Constructor
          *
-         * @param parent The parent PullableListView
+         * @param parent The parent PullListLayout
          */
 
-        public PullToRefreshScroller(final PullableListView parent) {
+        public PullToRefreshScroller(final PullListLayout parent) {
             this.parent = parent;
             totalOffset = 0.0f;
             previousIntOffset = 0;
@@ -315,45 +345,104 @@ public class PullableListView extends RelativeLayout {
             topContentSize = 0;
             bottomMaxLength = 0.0f;
             bottomContentSize = 0;
+            topPullEnabled = true;
+            bottomPullEnabled = true;
 
             // default scrolling parameters
             damping = 0.02f;
             easing = 0.7f;
-
-            running = false;
         }
+
+        /**
+         * Initializes the state of the scroller
+         */
 
         private void initialize() {
             // scrolling state
             setState(State.NORMAL);
         }
 
-        private void setOverscrolled(final boolean overscrolled) {
-            this.overscrolled = overscrolled;
+        /**
+         * Enables or disables the top pull behaviour
+         *
+         * @param enable Flag indicating if the behaviour should be enabled
+         */
+
+        private void enableTopPull(boolean enable) {
+            if (topPullEnabled && !enable) {
+                setState(State.NORMAL);
+            }
+            topPullEnabled = enable;
         }
+
+        /**
+         * Enables or disables the bottom pull behaviour
+         *
+         * @param enable Flag indicating if the behaviour should be enabled
+         */
+
+        private void enableBottomPull(boolean enable) {
+            if (bottomPullEnabled && !enable) {
+                setState(State.NORMAL);
+            }
+            bottomPullEnabled = enable;
+        }
+
+        /**
+         * Sets the overscroll state of the ListView
+         *
+         * @param isOverScrolled A flag indicating if the ListView has overscrolled
+         * @param scrollY The total distance scrolled in the y-axis
+         */
+
+        private void onOverScrolled(final boolean isOverScrolled, final int scrollY) {
+            Log.d(TAG, "" + scrollY);
+            // FIXME scrollY returns 0 all the time
+            if ((scrollY < 0 && topPullEnabled) || (scrollY > 0 && bottomPullEnabled)) {
+                this.isOverScrolled = isOverScrolled;
+            }
+        }
+
+        /**
+         * Called when the top pulled view has been laid out
+         *
+         * @param topPulledView The top pulled view
+         */
 
         private void onTopPulledViewLayout(final View topPulledView) {
             topMaxLength = (float)topPulledView.getHeight();
             topContentSize = topPulledView.getHeight() - topPulledView.getPaddingTop();
         }
 
+        /**
+         * Called when the bottom pulled view has been laid out
+         *
+         * @param bottomPulledView The bottom pulled view
+         */
+
         private void onBottomPulledViewLayout(final View bottomPulledView) {
             bottomMaxLength = (float)bottomPulledView.getHeight();
             bottomContentSize = bottomPulledView.getHeight() - bottomPulledView.getPaddingBottom();
         }
 
+        /**
+         * Recomputes the scroll distance travelled for internal calculations
+         */
+
         private void recomputeTravel() {
             switch (state) {
-                case PULL_TOP:
                 case PULL_TOP_THRESHOLD:
-                case PULL_TOP_WAITING:
+                    parent.onTopThresholdPassed();
+                case PULL_TOP:
+                case PULL_TOP_THRESHOLD_RELEASED:
                     final float sign = Math.signum(totalTravel);
                     totalTravel = -sign * (float)Math.log(1.0f - totalOffset / (sign * topMaxLength)) / damping;
                     break;
 
-                case PULL_BOTTOM:
                 case PULL_BOTTOM_THRESHOLD:
-                case PULL_BOTTOM_WAITING:
+                    parent.onBottomThresholdPassed();
+                case PULL_BOTTOM:
+                case PULL_BOTTOM_THRESHOLD_RELEASED:
                     final float sig = Math.signum(totalTravel);
                     totalTravel = -sig * (float)Math.log(1.0f - totalOffset / (sig * bottomMaxLength)) / damping;
                     break;
@@ -364,13 +453,17 @@ public class PullableListView extends RelativeLayout {
             }
         }
 
+        /**
+         * Sets the state and calls other code for state changes
+         *
+         * @param state The new scrolling state
+         */
+
         private void setState(final State state) {
-            this.state = state;
-            Log.d(TAG, state.name());
             switch (state) {
                 case NORMAL:
                     parent.setPullOffset(-(int)totalOffset);
-                    overscrolled = false;
+                    isOverScrolled = false;
                     totalOffset = 0.0f;
                     previousIntOffset = 0;
                     totalTravel = 0.0f;
@@ -385,7 +478,7 @@ public class PullableListView extends RelativeLayout {
 
                 case PULL_TOP_WAITING:
                     parent.setPullOffset(-(int)totalOffset + topContentSize);
-                    overscrolled = false;
+                    isOverScrolled = false;
                     previousIntOffset = topContentSize;
                     totalOffset = topContentSize;
                     recomputeTravel();
@@ -394,13 +487,16 @@ public class PullableListView extends RelativeLayout {
 
                 case PULL_BOTTOM_WAITING:
                     parent.setPullOffset(-(int)totalOffset - bottomContentSize);
-                    overscrolled = false;
+                    isOverScrolled = false;
                     previousIntOffset = -bottomContentSize;
                     totalOffset = -bottomContentSize;
                     recomputeTravel();
                     parent.onBottomRefreshRequest();
                     break;
             }
+
+            this.state = state;
+            Log.d(TAG, state.name());
         }
 
         /**
@@ -424,8 +520,9 @@ public class PullableListView extends RelativeLayout {
         }
 
         /**
+         * Responds to touch events
          *
-         * @param e
+         * @param e The MotionEvent causing the touch event
          */
 
         private boolean onTouchEvent(MotionEvent e) {
@@ -439,7 +536,7 @@ public class PullableListView extends RelativeLayout {
 
                 case MotionEvent.ACTION_DOWN:
                     stop();
-                    if (overscrolled) {
+                    if (isOverScrolled) {
                         // recompute the totalTravel from totalOffset
                         recomputeTravel();
                     }
@@ -467,14 +564,23 @@ public class PullableListView extends RelativeLayout {
                  */
 
                 case MotionEvent.ACTION_MOVE:
+                    SCROLL_STATE_SWITCH:
                     switch (state) {
                         case NORMAL:
-                            if (overscrolled && (e.getHistorySize() > 1)) {
+                            if (isOverScrolled && (e.getHistorySize() > 1)) {
                                 dy = e.getY() - e.getHistoricalY(1);
                                 if (dy > 0.0f) {
-                                    setState(State.PULL_TOP);
+                                    if (topPullEnabled) {
+                                        setState(State.PULL_TOP);
+                                    } else {
+                                        break SCROLL_STATE_SWITCH;
+                                    }
                                 } else {
-                                    setState(State.PULL_BOTTOM);
+                                    if (bottomPullEnabled) {
+                                        setState(State.PULL_BOTTOM);
+                                    } else {
+                                        break SCROLL_STATE_SWITCH;
+                                    }
                                 }
                             }
                             // fall through
@@ -485,7 +591,7 @@ public class PullableListView extends RelativeLayout {
                         case PULL_BOTTOM:
                             // fall through
                         case PULL_BOTTOM_THRESHOLD:
-                            if (overscrolled) {
+                            if (isOverScrolled) {
                                 if (e.getHistorySize() > 1) {
                                     dy = e.getY() - e.getHistoricalY(1);
                                 }
@@ -513,12 +619,11 @@ public class PullableListView extends RelativeLayout {
                                 }
 
                                 parent.setPullOffset((int) totalOffset - previousIntOffset);
+                                Log.d(TAG, "Dragged");
                                 ViewCompat.postInvalidateOnAnimation(parent);
-//                                Log.d("**", "Tagged, dragged and had");
                                 processed = true;
                                 break;
                             }
-//                            Log.d("***", "Returning to complement");
                             break;
 
                         default:
@@ -554,7 +659,6 @@ public class PullableListView extends RelativeLayout {
                     break;
 
                 default:
-//                    Log.d("***", "Untouched");
                     break;
             }
 
@@ -566,24 +670,32 @@ public class PullableListView extends RelativeLayout {
             return true;
         }
 
+        /**
+         * Starts the scroll release animation
+         */
+
         private void start() {
-            running = true;
             parent.handler.post(this);
         }
 
+        /**
+         * Stops the scroll release animation
+         */
+
         private void stop() {
-            if (running) {
-                parent.handler.removeCallbacks(this);
-                running = false;
-            }
+            parent.handler.removeCallbacks(this);
         }
+
+        /**
+         * Runs each step of the release animation
+         */
 
         @Override
         public void run() {
             switch (state) {
                 case PULL_TOP_RELEASED:
                 case PULL_BOTTOM_RELEASED:
-                    if (Math.abs(totalOffset) < OVERSCROLL_THRESHOLD) {
+                    if (Math.abs(totalOffset) < OVER_SCROLL_THRESHOLD) {
                         setState(State.NORMAL);
                     } else {
                         previousIntOffset = (int)totalOffset;
@@ -596,7 +708,7 @@ public class PullableListView extends RelativeLayout {
                     break;
 
                 case PULL_TOP_THRESHOLD_RELEASED:
-                    if (Math.abs(totalOffset - topContentSize) < OVERSCROLL_THRESHOLD) {
+                    if (Math.abs(totalOffset - topContentSize) < OVER_SCROLL_THRESHOLD) {
                         setState(State.PULL_TOP_WAITING);
                     } else {
                         previousIntOffset = (int)totalOffset;
@@ -610,7 +722,7 @@ public class PullableListView extends RelativeLayout {
                     break;
 
                 case PULL_BOTTOM_THRESHOLD_RELEASED:
-                    if (Math.abs(totalOffset + bottomContentSize) < OVERSCROLL_THRESHOLD) {
+                    if (Math.abs(totalOffset + bottomContentSize) < OVER_SCROLL_THRESHOLD) {
                         setState(State.PULL_BOTTOM_WAITING);
                     } else {
                         previousIntOffset = (int)totalOffset;
@@ -621,6 +733,10 @@ public class PullableListView extends RelativeLayout {
                         parent.setPullOffset((int)totalOffset - previousIntOffset);
                         parent.handler.post(this);
                     }
+                    break;
+
+                default:
+                    Log.wtf(TAG, "[.run] Illegal state in running method: " + state.name());
                     break;
             }
         }
