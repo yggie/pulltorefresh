@@ -72,7 +72,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        lv.enableTopPull(false);
+        lv.enableBottomPull(false);
     }
 
     @Override
