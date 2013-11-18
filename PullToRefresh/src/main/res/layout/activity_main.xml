@@ -8,16 +8,9 @@
     android:paddingTop="@dimen/activity_vertical_margin"
     tools:context=".MainActivity" >
 
-    <com.github.yggie.pulltorefresh.CustomScrollView
-        android:id="@+id/scroll_view"
-        android:layout_width="500dp"
-        android:layout_height="1000dp"
-        android:layout_alignParentLeft="true" />
-
     <com.github.yggie.pulltorefresh.PullableListView
         android:id="@+id/list_view"
-        android:layout_width="400dp"
-        android:layout_height="1000dp"
-        android:layout_toRightOf="@id/scroll_view" />
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
 
 </RelativeLayout>

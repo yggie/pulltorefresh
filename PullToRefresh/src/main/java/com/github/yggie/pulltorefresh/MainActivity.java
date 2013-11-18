@@ -27,23 +27,38 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        listView = ((PullableListView)findViewById(R.id.list_view)).getListView();
+        PullableListView lv = ((PullableListView)findViewById(R.id.list_view));
+        listView = lv.getListView();
         adapterList = defaultList();
         adapter = new SimpleAdapter(this, adapterList, R.layout.item, new String[] {"title", "content"},
                 new int[] {R.id.title, R.id.content});
         listView.setAdapter(adapter);
-//		listView.setSelection(1);
-//		listView.setSelectionFromTop(1, 0);
 
-//		handler.postDelayed(new Runnable() {
-//
-//			@Override
-//			public void run() {
-////				listView.smoothScrollToPosition(15);
-//				listView.offsetTopAndBottom(500);
-//			}
-//			
-//		}, 1000);
+        // adds dummy listeners
+        lv.addOnTopRefreshRequestListener(new PullableListView.OnTopRefreshRequestListener() {
+            @Override
+            public void onTopRefreshRequest(final PullableListView.OnRequestCompleteListener listener) {
+                handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        listener.onRequestComplete();
+                    }
+                }, 1000);
+            }
+        });
+
+        // adds dummy listener
+        lv.addOnBottomRefreshRequestListener(new PullableListView.OnBottomRefreshRequestListener() {
+            @Override
+            public void onBottomRefreshRequest(final PullableListView.OnRequestCompleteListener listener) {
+                handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        listener.onRequestComplete();
+                    }
+                }, 1000);
+            }
+        });
     }
 
     @Override
