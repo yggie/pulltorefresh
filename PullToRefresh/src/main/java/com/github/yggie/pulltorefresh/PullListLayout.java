@@ -31,21 +31,30 @@ import android.os.Handler;
 import android.support.v4.view.ViewCompat;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.AbsListView;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
+import android.widget.TextView;
 
 import java.util.LinkedList;
 
 public class PullListLayout extends RelativeLayout {
 
+    /** default view managers */
+    private DefaultPulledViewManager topManager;
+    private DefaultPulledViewManager bottomManager;
+
     /** the contained views */
-    private View topPulledView;
+    private FrameLayout topPulledView;
     private ListView listView;
-    private View bottomPulledView;
+    private FrameLayout bottomPulledView;
 
     /** a handler for posting Runnable */
     private final Handler handler = new Handler();
@@ -85,26 +94,30 @@ public class PullListLayout extends RelativeLayout {
                 RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT));
 
         // setup top pulled view
-        RelativeLayout.LayoutParams progressBarParams = new RelativeLayout.LayoutParams(
-                RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
-        progressBarParams.addRule(RelativeLayout.ALIGN_PARENT_TOP, RelativeLayout.TRUE);
-        ProgressBar progressBar = new ProgressBar(context);
-        progressBar.setIndeterminate(true);
-        progressBar.setLayoutParams(progressBarParams);
-        progressBar.setBackgroundColor(Color.CYAN);
-        progressBar.setPadding(0, 100, 0, 10);
-        topPulledView = progressBar;
+        RelativeLayout.LayoutParams topViewParams = new RelativeLayout.LayoutParams(
+                LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+        topViewParams.addRule(RelativeLayout.ALIGN_PARENT_TOP, RelativeLayout.TRUE);
+        FrameLayout topFrameLayout = new FrameLayout(context);
+        topFrameLayout.setLayoutParams(topViewParams);
+        // setup the default child of the FrameLayout
+        topManager = new DefaultPulledViewManager(context, true);
+        topManager.setBackgroundColor(Color.CYAN); // for debugging
+        addTopPullEventListener(topManager);
+        topFrameLayout.addView(topManager);
+        topPulledView = topFrameLayout;
 
         // setup bottom pulled view
-        RelativeLayout.LayoutParams progressBarParams2 = new RelativeLayout.LayoutParams(
-                RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
-        progressBarParams2.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM, RelativeLayout.TRUE);
-        ProgressBar progressBar2 = new ProgressBar(context);
-        progressBar2.setIndeterminate(true);
-        progressBar2.setLayoutParams(progressBarParams2);
-        progressBar2.setBackgroundColor(Color.MAGENTA);
-        progressBar2.setPadding(0, 10, 0, 50);
-        bottomPulledView = progressBar2;
+        RelativeLayout.LayoutParams bottomViewParams = new RelativeLayout.LayoutParams(
+                LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+        bottomViewParams.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM, RelativeLayout.TRUE);
+        FrameLayout bottomFrameLayout = new FrameLayout(context);
+        bottomFrameLayout.setLayoutParams(bottomViewParams);
+        // setup the default child in the FrameLayout
+        bottomManager = new DefaultPulledViewManager(context, false);
+        bottomManager.setBackgroundColor(Color.MAGENTA); // for debugging
+        addOnBottomPullEventListener(bottomManager);
+        bottomFrameLayout.addView(bottomManager);
+        bottomPulledView = bottomFrameLayout;
 
         addView(topPulledView);
         addView(bottomPulledView);
@@ -129,6 +142,16 @@ public class PullListLayout extends RelativeLayout {
     }
 
     /**
+     * Called when the request has been completed
+     */
+
+    private void onTopRequestComplete() {
+        for (OnPullEventListener l : onTopPullEventListenerList) {
+            l.onRequestComplete();
+        }
+    }
+
+    /**
      * Called when the scroller reaches the PULL_TOP_WAITING state
      */
 
@@ -145,6 +168,36 @@ public class PullListLayout extends RelativeLayout {
     private void onTopThresholdPassed() {
         for (OnPullEventListener l : onTopPullEventListenerList) {
             l.onThresholdPassed();
+        }
+    }
+
+    /**
+     * Called when the top pull begins
+     */
+
+    private void onTopStartPull() {
+        for (OnPullEventListener l : onTopPullEventListenerList) {
+            l.onStartPull();
+        }
+    }
+
+    /**
+     * Called when the top pull ends
+     */
+
+    private void onTopEndPull() {
+        for (OnPullEventListener l : onTopPullEventListenerList) {
+            l.onEndPull();
+        }
+    }
+
+    /**
+     * Called when the request has been completed
+     */
+
+    private void onBottomRequestComplete() {
+        for (OnPullEventListener l : onBottomPullEventListenerList) {
+            l.onRequestComplete();
         }
     }
 
@@ -169,12 +222,32 @@ public class PullListLayout extends RelativeLayout {
     }
 
     /**
+     * Called when the bottom pull starts
+     */
+
+    private void onBottomStartPull() {
+        for (OnPullEventListener l : onBottomPullEventListenerList) {
+            l.onStartPull();
+        }
+    }
+
+    /**
+     * Called when the bottom pull ends
+     */
+
+    private void onBottomEndPull() {
+        for (OnPullEventListener l : onBottomPullEventListenerList) {
+            l.onEndPull();
+        }
+    }
+
+    /**
      * Adds a listener for top refresh requests
      *
      * @param listener The listener to add
      */
 
-    public void addOnTopRefreshRequestListener(OnPullEventListener listener) {
+    public void addTopPullEventListener(OnPullEventListener listener) {
         onTopPullEventListenerList.add(listener);
     }
 
@@ -184,7 +257,7 @@ public class PullListLayout extends RelativeLayout {
      * @param listener The listener to remove
      */
 
-    public void removeOnTopRefreshRequestListener(OnPullEventListener listener) {
+    public void removeOnTopPullEventListener(OnPullEventListener listener) {
         onTopPullEventListenerList.remove(listener);
     }
 
@@ -194,7 +267,7 @@ public class PullListLayout extends RelativeLayout {
      * @param listener The listener to add
      */
 
-    public void addOnBottomRefreshRequestListener(OnPullEventListener listener) {
+    public void addOnBottomPullEventListener(OnPullEventListener listener) {
         onBottomPullEventListenerList.add(listener);
     }
 
@@ -204,7 +277,7 @@ public class PullListLayout extends RelativeLayout {
      * @param listener The listener to remove
      */
 
-    public void removeOnBottomRefreshRequestListener(OnPullEventListener listener) {
+    public void removeOnBottomPullEventListener(OnPullEventListener listener) {
         onBottomPullEventListenerList.remove(listener);
     }
 
@@ -239,6 +312,74 @@ public class PullListLayout extends RelativeLayout {
     }
 
     /**
+     * Replaces the top pulled view with the view specified by the resource id given
+     *
+     * @param resId The resource id of the view
+     */
+
+    public void setTopPulledView(int resId) {
+        if (topManager != null) {
+            removeOnTopPullEventListener(topManager);
+            topManager = null;
+        }
+        topPulledView.removeAllViews();
+        LayoutInflater.from(getContext()).inflate(resId, topPulledView);
+    }
+
+    /**
+     * Replaces the top pulled view with the given view
+     *
+     * @param view The view to be added
+     */
+
+    public void setTopPulledView(View view) {
+        if (topManager != null) {
+            removeOnTopPullEventListener(topManager);
+            topManager = null;
+        }
+        if (view != null) {
+            topPulledView.removeAllViews();
+            topPulledView.addView(view);
+        } else {
+            throw new NullPointerException("PullListLayout.setTopPulledView: The view cannot be null");
+        }
+    }
+
+    /**
+     * Replaces the bottom pulled view with the view specified by the resource id given
+     *
+     * @param resId The resource id of the view
+     */
+
+    public void setBottomPulledView(int resId) {
+        if (bottomManager != null) {
+            removeOnBottomPullEventListener(bottomManager);
+            bottomManager = null;
+        }
+        bottomPulledView.removeAllViews();
+        LayoutInflater.from(getContext()).inflate(resId, topPulledView);
+    }
+
+    /**
+     * Replaces the bottom pulled view with the given view
+     *
+     * @param view The view to be added
+     */
+
+    public void setBottomPulledView(View view) {
+        if (bottomManager != null) {
+            removeOnBottomPullEventListener(bottomManager);
+            bottomManager = null;
+        }
+        if (view != null) {
+            bottomPulledView.removeAllViews();
+            bottomPulledView.addView(view);
+        } else {
+            throw new NullPointerException("PullListLayout.setBottomPulledView: The view cannot be null");
+        }
+    }
+
+    /**
      * Overrides the onLayout to catch layout events. This is to recalibrate scrolling measurements
      *
      * @param changed If the layout has changed
@@ -255,8 +396,8 @@ public class PullListLayout extends RelativeLayout {
         bottomPulledView.offsetTopAndBottom(bottomPulledView.getHeight());
 
         // notify the scroller of changes to the layout
-        scroller.onTopPulledViewLayout(topPulledView);
-        scroller.onBottomPulledViewLayout(bottomPulledView);
+        scroller.onTopPulledViewLayout(topPulledView.getChildAt(0));
+        scroller.onBottomPulledViewLayout(bottomPulledView.getChildAt(0));
     }
 
     /**
@@ -264,8 +405,11 @@ public class PullListLayout extends RelativeLayout {
      */
 
     public static interface OnPullEventListener {
-        public void onRefreshRequest(OnRequestCompleteListener listener);
+        public void onStartPull();
         public void onThresholdPassed();
+        public void onRefreshRequest(OnRequestCompleteListener listener);
+        public void onRequestComplete();
+        public void onEndPull();
     }
 
     /**
@@ -475,6 +619,7 @@ public class PullListLayout extends RelativeLayout {
                 case PULL_TOP_THRESHOLD:
                     parent.onTopThresholdPassed();
                 case PULL_TOP:
+                case PULL_TOP_WAITING:
                 case PULL_TOP_THRESHOLD_RELEASED:
                     final float sign = Math.signum(totalTravel);
                     totalTravel = -sign * (float)Math.log(1.0f - totalOffset / (sign * topMaxLength)) / damping;
@@ -483,6 +628,7 @@ public class PullListLayout extends RelativeLayout {
                 case PULL_BOTTOM_THRESHOLD:
                     parent.onBottomThresholdPassed();
                 case PULL_BOTTOM:
+                case PULL_BOTTOM_WAITING:
                 case PULL_BOTTOM_THRESHOLD_RELEASED:
                     final float sig = Math.signum(totalTravel);
                     totalTravel = -sig * (float)Math.log(1.0f - totalOffset / (sig * bottomMaxLength)) / damping;
@@ -501,6 +647,21 @@ public class PullListLayout extends RelativeLayout {
          */
 
         private void setState(final State state) {
+            if (state == State.NORMAL) {
+                switch (state) {
+                    case PULL_TOP_RELEASED:
+                        parent.onTopEndPull();
+                        break;
+
+                    case PULL_BOTTOM_RELEASED:
+                        parent.onBottomEndPull();
+                        break;
+                }
+            }
+
+            this.state = state;
+            Log.d(TAG, state.name());
+
             switch (state) {
                 case NORMAL:
                     parent.setPullOffset(-(int)totalOffset);
@@ -509,6 +670,14 @@ public class PullListLayout extends RelativeLayout {
                     previousIntOffset = 0;
                     totalTravel = 0.0f;
                     dy = 0.0f;
+                    break;
+
+                case PULL_TOP:
+                    parent.onTopStartPull();
+                    break;
+
+                case PULL_BOTTOM:
+                    parent.onBottomStartPull();
                     break;
 
                 case PULL_TOP_RELEASED:
@@ -536,9 +705,6 @@ public class PullListLayout extends RelativeLayout {
                     parent.onBottomRefreshRequest();
                     break;
             }
-
-            this.state = state;
-            Log.d(TAG, state.name());
         }
 
         /**
@@ -549,14 +715,16 @@ public class PullListLayout extends RelativeLayout {
             switch (state) {
                 case PULL_TOP_WAITING:
                     setState(State.PULL_TOP_RELEASED);
+                    parent.onTopRequestComplete();
                     break;
 
                 case PULL_BOTTOM_WAITING:
                     setState(State.PULL_BOTTOM_RELEASED);
+                    parent.onBottomRequestComplete();
                     break;
 
                 default:
-                    Log.wtf(TAG, "[.onRequestComplete] Illegal scrolling state!");
+                    Log.wtf(TAG, "[.onRequestComplete] Illegal scrolling state: " + state.name());
                     break;
             }
         }
@@ -578,7 +746,7 @@ public class PullListLayout extends RelativeLayout {
 
                 case MotionEvent.ACTION_DOWN:
                     stop();
-                    if (isOverScrolled) {
+                    if (isOverScrolled && state != State.NORMAL) {
                         // recompute the totalTravel from totalOffset
                         recomputeTravel();
                     }
@@ -657,7 +825,6 @@ public class PullListLayout extends RelativeLayout {
                                 }
 
                                 parent.setPullOffset((int) totalOffset - previousIntOffset);
-                                Log.d(TAG, "Dragged");
                                 ViewCompat.postInvalidateOnAnimation(parent);
                                 processed = true;
                                 break;
@@ -777,6 +944,94 @@ public class PullListLayout extends RelativeLayout {
                     Log.wtf(TAG, "[.run] Illegal state in running method: " + state.name());
                     break;
             }
+        }
+    }
+
+    /**
+     * A convenient class to manage default pulled view behaviour
+     */
+
+    private static class DefaultPulledViewManager extends LinearLayout implements OnPullEventListener {
+
+        private TextView statusText;
+        private ProgressBar progressBar;
+
+        private String defaultText;
+        private String thresholdPassedText;
+        private String refreshingText;
+        private String completeText;
+
+        public DefaultPulledViewManager(Context context, boolean isTop) {
+            super(context);
+            initialize(isTop);
+        }
+
+        private void initialize(boolean isTop) {
+            final Context context = getContext();
+            final float logicalDensity = context.getResources().getDisplayMetrics().density;
+
+            final int pixelHeight = (int)(80.0f * logicalDensity + 0.5f);
+            final int paddingLarge = (int)(40.0f * logicalDensity + 0.5f);
+            final int paddingSmall = (int)(5.0f * logicalDensity + 0.5f);
+            this.setLayoutParams(new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, pixelHeight));
+            if (isTop) {
+                this.setPadding(0, paddingLarge, 0, paddingSmall);
+            } else {
+                this.setPadding(0, paddingSmall, 0, paddingLarge);
+            }
+            this.setGravity(Gravity.CENTER);
+
+            progressBar = new ProgressBar(context);
+            progressBar.setLayoutParams(new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
+            progressBar.setIndeterminate(true);
+            progressBar.setVisibility(View.INVISIBLE);
+
+            final int textIndent = (int)(10.0f * logicalDensity + 0.5f);
+            final int textWidth = (int)(300.0f * logicalDensity + 0.5f);
+            statusText = new TextView(context);
+            statusText.setLayoutParams(new LayoutParams(textWidth, LayoutParams.WRAP_CONTENT));
+            statusText.setPadding(textIndent, 0, 0, 0);
+            statusText.setTextSize(18.0f);
+            statusText.setText("You should not be able to see this text");
+
+            this.addView(progressBar);
+            this.addView(statusText);
+
+            defaultText = "Pull to refresh";
+            thresholdPassedText = "Release to refresh";
+            refreshingText = "Refreshing";
+            completeText = "Refresh complete";
+        }
+
+        @Override
+        public void onRequestComplete() {
+            statusText.setText(completeText);
+            progressBar.setVisibility(INVISIBLE);
+            invalidate();
+        }
+
+        @Override
+        public void onEndPull() {
+            // do nothing
+        }
+
+        @Override
+        public void onRefreshRequest(OnRequestCompleteListener listener) {
+            statusText.setText(refreshingText);
+            progressBar.setVisibility(VISIBLE);
+            invalidate();
+        }
+
+        @Override
+        public void onStartPull() {
+            statusText.setText(defaultText);
+            invalidate();
+        }
+
+        @Override
+        public void onThresholdPassed() {
+            statusText.setText(thresholdPassedText);
+            invalidate();
         }
     }
 }

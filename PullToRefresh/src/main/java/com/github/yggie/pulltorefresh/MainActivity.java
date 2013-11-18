@@ -35,7 +35,7 @@ public class MainActivity extends Activity {
         listView.setAdapter(adapter);
 
         // adds dummy listeners
-        lv.addOnTopRefreshRequestListener(new PullListLayout.OnPullEventListener() {
+        lv.addTopPullEventListener(new PullListLayout.OnPullEventListener() {
 
             @Override
             public void onRefreshRequest(final PullListLayout.OnRequestCompleteListener listener) {
@@ -48,13 +48,24 @@ public class MainActivity extends Activity {
             }
 
             @Override
+            public void onRequestComplete() {
+            }
+
+            @Override
+            public void onEndPull() {
+            }
+
+            @Override
+            public void onStartPull() {
+            }
+
+            @Override
             public void onThresholdPassed() {
-                // do nothing at the moment
             }
         });
 
         // adds dummy listener
-        lv.addOnBottomRefreshRequestListener(new PullListLayout.OnPullEventListener() {
+        lv.addOnBottomPullEventListener(new PullListLayout.OnPullEventListener() {
 
             @Override
             public void onRefreshRequest(final PullListLayout.OnRequestCompleteListener listener) {
@@ -67,12 +78,32 @@ public class MainActivity extends Activity {
             }
 
             @Override
+            public void onRequestComplete() {
+            }
+
+            @Override
+            public void onEndPull() {
+            }
+
+            @Override
+            public void onStartPull() {
+            }
+
+            @Override
             public void onThresholdPassed() {
-                // do nothing at the moment
             }
         });
 
-        lv.enableBottomPull(false);
+        // enable or disable top pull behaviour
+//        lv.enableTopPull(false);
+
+        // enable or disable bottom pull behaviour
+//        lv.enableBottomPull(false);
+
+        // replace the default view with a view of your own
+//        lv.setTopPulledView(R.layout.progress_bar);
+
+//        lv.setTopPulledView(LayoutInflater.from(this).inflate(R.layout.progress_bar, null));
     }
 
     @Override
