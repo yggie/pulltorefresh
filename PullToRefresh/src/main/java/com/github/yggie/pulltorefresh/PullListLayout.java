@@ -8,6 +8,7 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.AbsListView;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
@@ -25,7 +26,7 @@ public class PullListLayout extends RelativeLayout {
     private final Handler handler = new Handler();
 
     /** handles scrolling behaviour */
-    private final PullToRefreshScroller scroller = new PullToRefreshScroller(this);
+    private final PullEffectScroller scroller = new PullEffectScroller(this);
 
     /** Listeners */
     private final LinkedList<OnPullEventListener> onTopPullEventListenerList = new LinkedList<OnPullEventListener>();
@@ -87,6 +88,7 @@ public class PullListLayout extends RelativeLayout {
 
         // initialize the scroller (requires parent to be ready)
         scroller.initialize();
+        listView.setOnScrollListener(scroller);
     }
 
     /**
@@ -270,7 +272,7 @@ public class PullListLayout extends RelativeLayout {
         @Override
         protected void onOverScrolled(int scrollX, int scrollY, boolean clampedX, boolean clampedY) {
             super.onOverScrolled(scrollX, scrollY, clampedX, clampedY);
-            scroller.onOverScrolled(clampedY, scrollY);
+            scroller.onOverScrolled(clampedY);
         }
 
         @Override
@@ -283,10 +285,10 @@ public class PullListLayout extends RelativeLayout {
      * This class implements the over-scrolling behaviour of the ListView
      */
 
-    private static class PullToRefreshScroller implements Runnable,
-            PullListLayout.OnRequestCompleteListener {
+    private static class PullEffectScroller implements Runnable,
+            PullListLayout.OnRequestCompleteListener, AbsListView.OnScrollListener {
 
-        private static final String TAG = PullToRefreshScroller.class.getSimpleName();
+        private static final String TAG = PullEffectScroller.class.getSimpleName();
 
         private static final float OVER_SCROLL_THRESHOLD = 2.0f;
 
@@ -300,11 +302,13 @@ public class PullListLayout extends RelativeLayout {
         private float easing;
 
         /** specific to top pull behaviour */
+        private boolean allowTopPull;
         private boolean topPullEnabled;
         private int topContentSize;
         private float topMaxLength;
 
         /** specific to bottom pull behaviour */
+        private boolean allowBottomPull;
         private boolean bottomPullEnabled;
         private int bottomContentSize;
         private float bottomMaxLength;
@@ -313,6 +317,21 @@ public class PullListLayout extends RelativeLayout {
 
         /** scrolling state */
         private State state;
+
+        @Override
+        public void onScrollStateChanged(AbsListView absListView, int scrollState) {
+            // do nothing
+        }
+
+        @Override
+        public void onScroll(AbsListView absListView, int firstVisibleItem, int visibleItemCount,
+                             int totalItemCount) {
+            allowTopPull = (firstVisibleItem == 0);
+            allowBottomPull = !allowTopPull;
+            if (allowTopPull && visibleItemCount == totalItemCount) {
+                allowBottomPull = true;
+            }
+        }
 
         /** possible scrolling states */
         public enum State {
@@ -335,7 +354,7 @@ public class PullListLayout extends RelativeLayout {
          * @param parent The parent PullListLayout
          */
 
-        public PullToRefreshScroller(final PullListLayout parent) {
+        public PullEffectScroller(final PullListLayout parent) {
             this.parent = parent;
             totalOffset = 0.0f;
             previousIntOffset = 0;
@@ -347,6 +366,8 @@ public class PullListLayout extends RelativeLayout {
             bottomContentSize = 0;
             topPullEnabled = true;
             bottomPullEnabled = true;
+            allowTopPull = true;
+            allowBottomPull = true;
 
             // default scrolling parameters
             damping = 0.02f;
@@ -389,18 +410,13 @@ public class PullListLayout extends RelativeLayout {
         }
 
         /**
-         * Sets the overscroll state of the ListView
+         * Sets the over-scroll state of the ListView
          *
-         * @param isOverScrolled A flag indicating if the ListView has overscrolled
-         * @param scrollY The total distance scrolled in the y-axis
+         * @param isOverScrolled A flag indicating if the ListView has over-scrolled
          */
 
-        private void onOverScrolled(final boolean isOverScrolled, final int scrollY) {
-            Log.d(TAG, "" + scrollY);
-            // FIXME scrollY returns 0 all the time
-            if ((scrollY < 0 && topPullEnabled) || (scrollY > 0 && bottomPullEnabled)) {
-                this.isOverScrolled = isOverScrolled;
-            }
+        private void onOverScrolled(final boolean isOverScrolled) {
+            this.isOverScrolled = isOverScrolled;
         }
 
         /**
@@ -467,6 +483,7 @@ public class PullListLayout extends RelativeLayout {
                     totalOffset = 0.0f;
                     previousIntOffset = 0;
                     totalTravel = 0.0f;
+                    dy = 0.0f;
                     break;
 
                 case PULL_TOP_RELEASED:
@@ -564,26 +581,22 @@ public class PullListLayout extends RelativeLayout {
                  */
 
                 case MotionEvent.ACTION_MOVE:
-                    SCROLL_STATE_SWITCH:
                     switch (state) {
                         case NORMAL:
-                            if (isOverScrolled && (e.getHistorySize() > 1)) {
-                                dy = e.getY() - e.getHistoricalY(1);
-                                if (dy > 0.0f) {
-                                    if (topPullEnabled) {
+                            if (isOverScrolled) {
+                                if (e.getHistorySize() > 1) {
+                                    dy = e.getY() - e.getHistoricalY(1);
+                                    if (dy > 0.0f && topPullEnabled && allowTopPull) {
                                         setState(State.PULL_TOP);
-                                    } else {
-                                        break SCROLL_STATE_SWITCH;
-                                    }
-                                } else {
-                                    if (bottomPullEnabled) {
+                                    } else if (dy < 0.0f && bottomPullEnabled && allowBottomPull) {
                                         setState(State.PULL_BOTTOM);
                                     } else {
-                                        break SCROLL_STATE_SWITCH;
+                                        isOverScrolled = false;
                                     }
                                 }
                             }
-                            // fall through
+                            break;
+
                         case PULL_TOP:
                             // fall through
                         case PULL_TOP_THRESHOLD:
