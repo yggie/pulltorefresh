@@ -48,8 +48,8 @@ import java.util.LinkedList;
 public class PullListLayout extends RelativeLayout {
 
     /** default view managers */
-    private DefaultPulledViewManager topManager;
-    private DefaultPulledViewManager bottomManager;
+    private DefaultPulledView topManager;
+    private DefaultPulledView bottomManager;
 
     /** the contained views */
     private FrameLayout topPulledView;
@@ -100,7 +100,7 @@ public class PullListLayout extends RelativeLayout {
         FrameLayout topFrameLayout = new FrameLayout(context);
         topFrameLayout.setLayoutParams(topViewParams);
         // setup the default child of the FrameLayout
-        topManager = new DefaultPulledViewManager(context, true);
+        topManager = new DefaultPulledView(context, true);
         topManager.setBackgroundColor(Color.CYAN); // for debugging
         addTopPullEventListener(topManager);
         topFrameLayout.addView(topManager);
@@ -113,7 +113,7 @@ public class PullListLayout extends RelativeLayout {
         FrameLayout bottomFrameLayout = new FrameLayout(context);
         bottomFrameLayout.setLayoutParams(bottomViewParams);
         // setup the default child in the FrameLayout
-        bottomManager = new DefaultPulledViewManager(context, false);
+        bottomManager = new DefaultPulledView(context, false);
         bottomManager.setBackgroundColor(Color.MAGENTA); // for debugging
         addOnBottomPullEventListener(bottomManager);
         bottomFrameLayout.addView(bottomManager);
@@ -312,6 +312,16 @@ public class PullListLayout extends RelativeLayout {
     }
 
     /**
+     * Returns the top pulled view
+     *
+     * @return Returnsthe top pulled view
+     */
+
+    public View getTopPulledView() {
+        return topPulledView.getChildAt(0);
+    }
+
+    /**
      * Replaces the top pulled view with the view specified by the resource id given
      *
      * @param resId The resource id of the view
@@ -343,6 +353,16 @@ public class PullListLayout extends RelativeLayout {
         } else {
             throw new NullPointerException("PullListLayout.setTopPulledView: The view cannot be null");
         }
+    }
+
+    /**
+     * Returns the bottom pulled view
+     *
+     * @return The bottom pulled view
+     */
+
+    public View getBottomPulledView() {
+        return bottomPulledView.getChildAt(0);
     }
 
     /**
@@ -676,8 +696,16 @@ public class PullListLayout extends RelativeLayout {
                     parent.onTopStartPull();
                     break;
 
+                case PULL_TOP_THRESHOLD:
+                    parent.onTopThresholdPassed();
+                    break;
+
                 case PULL_BOTTOM:
                     parent.onBottomStartPull();
+                    break;
+
+                case PULL_BOTTOM_THRESHOLD:
+                    parent.onBottomThresholdPassed();
                     break;
 
                 case PULL_TOP_RELEASED:
@@ -951,17 +979,17 @@ public class PullListLayout extends RelativeLayout {
      * A convenient class to manage default pulled view behaviour
      */
 
-    private static class DefaultPulledViewManager extends LinearLayout implements OnPullEventListener {
+    public static class DefaultPulledView extends LinearLayout implements OnPullEventListener {
 
         private TextView statusText;
         private ProgressBar progressBar;
 
-        private String defaultText;
+        private String startPullText;
         private String thresholdPassedText;
         private String refreshingText;
         private String completeText;
 
-        public DefaultPulledViewManager(Context context, boolean isTop) {
+        public DefaultPulledView(Context context, boolean isTop) {
             super(context);
             initialize(isTop);
         }
@@ -970,7 +998,7 @@ public class PullListLayout extends RelativeLayout {
             final Context context = getContext();
             final float logicalDensity = context.getResources().getDisplayMetrics().density;
 
-            final int pixelHeight = (int)(80.0f * logicalDensity + 0.5f);
+            final int pixelHeight = (int)(120.0f * logicalDensity + 0.5f);
             final int paddingLarge = (int)(40.0f * logicalDensity + 0.5f);
             final int paddingSmall = (int)(5.0f * logicalDensity + 0.5f);
             this.setLayoutParams(new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, pixelHeight));
@@ -997,10 +1025,42 @@ public class PullListLayout extends RelativeLayout {
             this.addView(progressBar);
             this.addView(statusText);
 
-            defaultText = "Pull to refresh";
+            startPullText = "Pull to refresh";
             thresholdPassedText = "Release to refresh";
             refreshingText = "Refreshing";
             completeText = "Refresh complete";
+        }
+
+        public void setStartPullText(int id) {
+            startPullText = getResources().getString(id);
+        }
+
+        public void setStartPullText(String text) {
+            startPullText = text;
+        }
+
+        public void setThresholdPassedText(int id) {
+            thresholdPassedText = getResources().getString(id);
+        }
+
+        public void setThresholdPassedText(String text) {
+            thresholdPassedText = text;
+        }
+
+        public void setRefreshingText(int resId) {
+            refreshingText = getResources().getString(resId);
+        }
+
+        public void setRefreshingText(String text) {
+            refreshingText = text;
+        }
+
+        public void setCompleteText(int resId) {
+            completeText = getResources().getString(resId);
+        }
+
+        public void setCompleteText(String text) {
+            completeText = text;
         }
 
         @Override
@@ -1024,7 +1084,7 @@ public class PullListLayout extends RelativeLayout {
 
         @Override
         public void onStartPull() {
-            statusText.setText(defaultText);
+            statusText.setText(startPullText);
             invalidate();
         }
 

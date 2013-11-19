@@ -9,6 +9,7 @@ import java.util.Random;
 import android.os.Bundle;
 import android.os.Handler;
 import android.app.Activity;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.widget.BaseAdapter;
 import android.widget.ListView;
@@ -100,10 +101,17 @@ public class MainActivity extends Activity {
         // enable or disable bottom pull behaviour
 //        lv.enableBottomPull(false);
 
-        // replace the default view with a view of your own
+        // replace the default view with a view of your own using a resource id
 //        lv.setTopPulledView(R.layout.progress_bar);
-
+        // using a custom view
 //        lv.setTopPulledView(LayoutInflater.from(this).inflate(R.layout.progress_bar, null));
+
+        // setting custom messages for the pull actions
+        PullListLayout.DefaultPulledView view = (PullListLayout.DefaultPulledView)lv.getTopPulledView();
+        view.setStartPullText("Pull me!");
+        view.setThresholdPassedText(R.string.let_go);
+        view.setRefreshingText("Getting fresh");
+        view.setCompleteText("Complete!");
     }
 
     @Override
