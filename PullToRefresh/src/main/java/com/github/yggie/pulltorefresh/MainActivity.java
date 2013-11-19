@@ -9,13 +9,13 @@ import java.util.Random;
 import android.os.Bundle;
 import android.os.Handler;
 import android.app.Activity;
-import android.view.LayoutInflater;
+import android.support.v4.app.FragmentActivity;
 import android.view.Menu;
 import android.widget.BaseAdapter;
 import android.widget.ListView;
 import android.widget.SimpleAdapter;
 
-public class MainActivity extends Activity {
+public class MainActivity extends FragmentActivity {
 
     ListView listView;
     private List<Map<String, String>> adapterList;
@@ -28,18 +28,19 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        PullListLayout lv = ((PullListLayout)findViewById(R.id.list_view));
-        listView = lv.getListView();
+        PullListFragment pullListFragment = (PullListFragment)getSupportFragmentManager()
+                .findFragmentById(R.id.pull_fragment);
+        listView = pullListFragment.getListView();
         adapterList = defaultList();
         adapter = new SimpleAdapter(this, adapterList, R.layout.item, new String[] {"title", "content"},
                 new int[] {R.id.title, R.id.content});
         listView.setAdapter(adapter);
 
         // adds dummy listeners
-        lv.addTopPullEventListener(new PullListLayout.OnPullEventListener() {
+        pullListFragment.addTopPullEventListener(new PullListFragment.OnPullEventListener() {
 
             @Override
-            public void onRefreshRequest(final PullListLayout.OnRequestCompleteListener listener) {
+            public void onRefreshRequest(final PullListFragment.OnRequestCompleteListener listener) {
                 handler.postDelayed(new Runnable() {
                     @Override
                     public void run() {
@@ -66,10 +67,10 @@ public class MainActivity extends Activity {
         });
 
         // adds dummy listener
-        lv.addOnBottomPullEventListener(new PullListLayout.OnPullEventListener() {
+        pullListFragment.addOnBottomPullEventListener(new PullListFragment.OnPullEventListener() {
 
             @Override
-            public void onRefreshRequest(final PullListLayout.OnRequestCompleteListener listener) {
+            public void onRefreshRequest(final PullListFragment.OnRequestCompleteListener listener) {
                 handler.postDelayed(new Runnable() {
                     @Override
                     public void run() {
@@ -107,7 +108,7 @@ public class MainActivity extends Activity {
 //        lv.setTopPulledView(LayoutInflater.from(this).inflate(R.layout.progress_bar, null));
 
         // setting custom messages for the pull actions
-        PullListLayout.DefaultPulledView view = (PullListLayout.DefaultPulledView)lv.getTopPulledView();
+        PullListFragment.DefaultPulledView view = (PullListFragment.DefaultPulledView)pullListFragment.getTopPulledView();
         view.setStartPullText("Pull me!");
         view.setThresholdPassedText(R.string.let_go);
         view.setRefreshingText("Getting fresh");

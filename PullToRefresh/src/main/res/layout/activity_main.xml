@@ -9,8 +9,9 @@
     android:background="#ffb"
     tools:context=".MainActivity" >
 
-    <com.github.yggie.pulltorefresh.PullListLayout
-        android:id="@+id/list_view"
+    <fragment
+        android:name="com.github.yggie.pulltorefresh.PullListFragment"
+        android:id="@+id/pull_fragment"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 

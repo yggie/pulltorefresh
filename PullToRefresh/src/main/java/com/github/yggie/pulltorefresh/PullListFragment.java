@@ -27,7 +27,9 @@ package com.github.yggie.pulltorefresh;
 
 import android.content.Context;
 import android.graphics.Color;
+import android.os.Bundle;
 import android.os.Handler;
+import android.support.v4.app.Fragment;
 import android.support.v4.view.ViewCompat;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -35,9 +37,11 @@ import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.AbsListView;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
@@ -45,13 +49,14 @@ import android.widget.TextView;
 
 import java.util.LinkedList;
 
-public class PullListLayout extends RelativeLayout {
+public class PullListFragment extends Fragment {
 
     /** default view managers */
     private DefaultPulledView topManager;
     private DefaultPulledView bottomManager;
 
     /** the contained views */
+    private RelativeLayout layout;
     private FrameLayout topPulledView;
     private ListView listView;
     private FrameLayout bottomPulledView;
@@ -66,36 +71,27 @@ public class PullListLayout extends RelativeLayout {
     private final LinkedList<OnPullEventListener> onTopPullEventListenerList = new LinkedList<OnPullEventListener>();
     private final LinkedList<OnPullEventListener> onBottomPullEventListenerList = new LinkedList<OnPullEventListener>();
 
-    public PullListLayout(Context context) {
-        super(context);
-        initialize();
-    }
-
-    public PullListLayout(Context context, AttributeSet attrs) {
-        super(context, attrs);
-        initialize();
-    }
-
-    public PullListLayout(Context context, AttributeSet attrs, int defaultStyle) {
-        super(context, attrs, defaultStyle);
-        initialize();
-    }
-
     /**
-     * Initialization code
+     * Creates all the views programmatically
+     *
+     * @param inflater The LayoutInflater
+     * @param container The parent container
+     * @param savedInstanceState The saved state
+     * @return The inflated view
      */
 
-    private void initialize() {
-        final Context context = getContext();
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        final Context context = getActivity();
 
         // setup the list view
-        listView = new ReportingListView(context);
+        listView = new CustomListView(context);
         listView.setLayoutParams(new RelativeLayout.LayoutParams(
                 RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT));
 
         // setup top pulled view
         RelativeLayout.LayoutParams topViewParams = new RelativeLayout.LayoutParams(
-                LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+                RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
         topViewParams.addRule(RelativeLayout.ALIGN_PARENT_TOP, RelativeLayout.TRUE);
         FrameLayout topFrameLayout = new FrameLayout(context);
         topFrameLayout.setLayoutParams(topViewParams);
@@ -108,7 +104,7 @@ public class PullListLayout extends RelativeLayout {
 
         // setup bottom pulled view
         RelativeLayout.LayoutParams bottomViewParams = new RelativeLayout.LayoutParams(
-                LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+                RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
         bottomViewParams.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM, RelativeLayout.TRUE);
         FrameLayout bottomFrameLayout = new FrameLayout(context);
         bottomFrameLayout.setLayoutParams(bottomViewParams);
@@ -119,10 +115,24 @@ public class PullListLayout extends RelativeLayout {
         bottomFrameLayout.addView(bottomManager);
         bottomPulledView = bottomFrameLayout;
 
-        addView(topPulledView);
-        addView(bottomPulledView);
-        addView(listView);
-        requestLayout();
+        layout = new CustomRelativeLayout(context);
+        layout.addView(topPulledView);
+        layout.addView(bottomPulledView);
+        layout.addView(listView);
+
+        return layout;
+    }
+
+    /**
+     * Contains initialization functions which require the views to be ready
+     *
+     * @param view The root view of the fragment
+     * @param savedInstanceState The saved state
+     */
+
+    @Override
+    public void onViewCreated(View view, Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
 
         // initialize the scroller (requires parent to be ready)
         scroller.initialize();
@@ -292,6 +302,26 @@ public class PullListLayout extends RelativeLayout {
     }
 
     /**
+     * Returns the contained ListView's adapter casted into a ListAdapter
+     *
+     * @return The contained ListView's adapter
+     */
+
+    public ListAdapter getListAdapter() {
+        return (ListAdapter)listView.getAdapter();
+    }
+
+    /**
+     * Set the contained ListView's adapter to the given adapter
+     *
+     * @param adapter The new ListAdapter
+     */
+
+    public void setListAdapter(ListAdapter adapter) {
+        listView.setAdapter(adapter);
+    }
+
+    /**
      * Enables or disables the top pull behaviour
      *
      * @param enable Flag indicating if the behaviour should be enabled
@@ -333,7 +363,7 @@ public class PullListLayout extends RelativeLayout {
             topManager = null;
         }
         topPulledView.removeAllViews();
-        LayoutInflater.from(getContext()).inflate(resId, topPulledView);
+        LayoutInflater.from(getActivity()).inflate(resId, topPulledView);
     }
 
     /**
@@ -351,7 +381,7 @@ public class PullListLayout extends RelativeLayout {
             topPulledView.removeAllViews();
             topPulledView.addView(view);
         } else {
-            throw new NullPointerException("PullListLayout.setTopPulledView: The view cannot be null");
+            throw new NullPointerException("PullListFragment.setTopPulledView: The view cannot be null");
         }
     }
 
@@ -377,7 +407,7 @@ public class PullListLayout extends RelativeLayout {
             bottomManager = null;
         }
         bottomPulledView.removeAllViews();
-        LayoutInflater.from(getContext()).inflate(resId, topPulledView);
+        LayoutInflater.from(getActivity()).inflate(resId, topPulledView);
     }
 
     /**
@@ -395,29 +425,8 @@ public class PullListLayout extends RelativeLayout {
             bottomPulledView.removeAllViews();
             bottomPulledView.addView(view);
         } else {
-            throw new NullPointerException("PullListLayout.setBottomPulledView: The view cannot be null");
+            throw new NullPointerException("PullListFragment.setBottomPulledView: The view cannot be null");
         }
-    }
-
-    /**
-     * Overrides the onLayout to catch layout events. This is to recalibrate scrolling measurements
-     *
-     * @param changed If the layout has changed
-     * @param left Left boundary
-     * @param top Top boundary
-     * @param right Right boundary
-     * @param bottom Bottom boundary
-     */
-
-    @Override
-    public void onLayout(boolean changed, int left, int top, int right, int bottom) {
-        super.onLayout(changed, left, top, right, bottom);
-        topPulledView.offsetTopAndBottom(-topPulledView.getHeight());
-        bottomPulledView.offsetTopAndBottom(bottomPulledView.getHeight());
-
-        // notify the scroller of changes to the layout
-        scroller.onTopPulledViewLayout(topPulledView.getChildAt(0));
-        scroller.onBottomPulledViewLayout(bottomPulledView.getChildAt(0));
     }
 
     /**
@@ -441,20 +450,42 @@ public class PullListLayout extends RelativeLayout {
     }
 
     /**
-     * This class extends ListView to capture additional information
+     * This class extends RelativeLayout to listen to changes in the layout
      */
 
-    private class ReportingListView extends ListView {
+    private class CustomRelativeLayout extends RelativeLayout {
 
-        public ReportingListView(Context context) {
+        public CustomRelativeLayout(Context context) {
             super(context);
         }
 
-        public ReportingListView(Context context, AttributeSet attrs) {
+        @Override
+        protected void onLayout(boolean changed, int l, int t, int r, int b) {
+            super.onLayout(changed, l, t, r, b);
+            topPulledView.offsetTopAndBottom(-topPulledView.getHeight());
+            bottomPulledView.offsetTopAndBottom(bottomPulledView.getHeight());
+
+            // report changes to the scroller
+            scroller.onTopPulledViewLayout(topPulledView.getChildAt(0));
+            scroller.onBottomPulledViewLayout(bottomPulledView.getChildAt(0));
+        }
+    }
+
+    /**
+     * This class extends ListView to capture additional information
+     */
+
+    private class CustomListView extends ListView {
+
+        public CustomListView(Context context) {
+            super(context);
+        }
+
+        public CustomListView(Context context, AttributeSet attrs) {
             super(context, attrs);
         }
 
-        public ReportingListView(Context context, AttributeSet attrs, int defaultStyle) {
+        public CustomListView(Context context, AttributeSet attrs, int defaultStyle) {
             super(context, attrs, defaultStyle);
         }
 
@@ -475,7 +506,7 @@ public class PullListLayout extends RelativeLayout {
      */
 
     private static class PullEffectScroller implements Runnable,
-            PullListLayout.OnRequestCompleteListener, AbsListView.OnScrollListener {
+            PullListFragment.OnRequestCompleteListener, AbsListView.OnScrollListener {
 
         private static final String TAG = PullEffectScroller.class.getSimpleName();
 
@@ -502,7 +533,7 @@ public class PullListLayout extends RelativeLayout {
         private int bottomContentSize;
         private float bottomMaxLength;
 
-        private final PullListLayout parent;
+        private final PullListFragment parent;
 
         /** scrolling state */
         private State state;
@@ -540,10 +571,10 @@ public class PullListLayout extends RelativeLayout {
         /**
          * Constructor
          *
-         * @param parent The parent PullListLayout
+         * @param parent The parent PullListFragment
          */
 
-        public PullEffectScroller(final PullListLayout parent) {
+        public PullEffectScroller(final PullListFragment parent) {
             this.parent = parent;
             totalOffset = 0.0f;
             previousIntOffset = 0;
@@ -853,7 +884,7 @@ public class PullListLayout extends RelativeLayout {
                                 }
 
                                 parent.setPullOffset((int) totalOffset - previousIntOffset);
-                                ViewCompat.postInvalidateOnAnimation(parent);
+                                ViewCompat.postInvalidateOnAnimation(parent.layout);
                                 processed = true;
                                 break;
                             }
