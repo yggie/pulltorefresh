@@ -51,6 +51,13 @@ import java.util.LinkedList;
 
 public class PullListFragment extends Fragment {
 
+    /** callback states */
+    public static final int TOP     = 0;
+    public static final int BOTTOM  = 1;
+
+    /** log identifier */
+    private static final String TAG = PullListFragment.class.getSimpleName();
+
     /** default view managers */
     private DefaultPulledView topManager;
     private DefaultPulledView bottomManager;
@@ -66,10 +73,6 @@ public class PullListFragment extends Fragment {
 
     /** handles scrolling behaviour */
     private final PullEffectScroller scroller = new PullEffectScroller(this);
-
-    /** Listeners */
-    private final LinkedList<OnPullEventListener> onTopPullEventListenerList = new LinkedList<OnPullEventListener>();
-    private final LinkedList<OnPullEventListener> onBottomPullEventListenerList = new LinkedList<OnPullEventListener>();
 
     /**
      * Creates all the views programmatically
@@ -98,7 +101,6 @@ public class PullListFragment extends Fragment {
         // setup the default child of the FrameLayout
         topManager = new DefaultPulledView(context, true);
         topManager.setBackgroundColor(Color.CYAN); // for debugging
-        addTopPullEventListener(topManager);
         topFrameLayout.addView(topManager);
         topPulledView = topFrameLayout;
 
@@ -111,7 +113,6 @@ public class PullListFragment extends Fragment {
         // setup the default child in the FrameLayout
         bottomManager = new DefaultPulledView(context, false);
         bottomManager.setBackgroundColor(Color.MAGENTA); // for debugging
-        addOnBottomPullEventListener(bottomManager);
         bottomFrameLayout.addView(bottomManager);
         bottomPulledView = bottomFrameLayout;
 
@@ -152,143 +153,135 @@ public class PullListFragment extends Fragment {
     }
 
     /**
-     * Called when the request has been completed
-     */
-
-    private void onTopRequestComplete() {
-        for (OnPullEventListener l : onTopPullEventListenerList) {
-            l.onRequestComplete();
-        }
-    }
-
-    /**
-     * Called when the scroller reaches the PULL_TOP_WAITING state
-     */
-
-    private void onTopRefreshRequest() {
-        for (OnPullEventListener l : onTopPullEventListenerList) {
-            l.onRefreshRequest(scroller);
-        }
-    }
-
-    /**
-     * Called when the top view has been pulled beyond the threshold value
-     */
-
-    private void onTopThresholdPassed() {
-        for (OnPullEventListener l : onTopPullEventListenerList) {
-            l.onThresholdPassed();
-        }
-    }
-
-    /**
-     * Called when the top pull begins
-     */
-
-    private void onTopStartPull() {
-        for (OnPullEventListener l : onTopPullEventListenerList) {
-            l.onStartPull();
-        }
-    }
-
-    /**
-     * Called when the top pull ends
-     */
-
-    private void onTopEndPull() {
-        for (OnPullEventListener l : onTopPullEventListenerList) {
-            l.onEndPull();
-        }
-    }
-
-    /**
-     * Called when the request has been completed
-     */
-
-    private void onBottomRequestComplete() {
-        for (OnPullEventListener l : onBottomPullEventListenerList) {
-            l.onRequestComplete();
-        }
-    }
-
-    /**
-     * Called when the scroller reaches the PULL_BOTTOM_WAITING state
-     */
-
-    private void onBottomRefreshRequest() {
-        for (OnPullEventListener l : onBottomPullEventListenerList) {
-            l.onRefreshRequest(scroller);
-        }
-    }
-
-    /**
-     * Called when the bottom view has been pulled beyond the threshold
-     */
-
-    private void onBottomThresholdPassed() {
-        for (OnPullEventListener l : onBottomPullEventListenerList) {
-            l.onThresholdPassed();
-        }
-    }
-
-    /**
-     * Called when the bottom pull starts
-     */
-
-    private void onBottomStartPull() {
-        for (OnPullEventListener l : onBottomPullEventListenerList) {
-            l.onStartPull();
-        }
-    }
-
-    /**
-     * Called when the bottom pull ends
-     */
-
-    private void onBottomEndPull() {
-        for (OnPullEventListener l : onBottomPullEventListenerList) {
-            l.onEndPull();
-        }
-    }
-
-    /**
-     * Adds a listener for top refresh requests
+     * Called when the pull action starts.
      *
-     * @param listener The listener to add
+     * The default behaviour simply updates the text in the default pulled views. When overriding
+     * this method, call the superclass method only if you intend to continue using the default
+     * pulled views.
+     *
+     * @param dir Can be either TOP or BOTTOM
      */
 
-    public void addTopPullEventListener(OnPullEventListener listener) {
-        onTopPullEventListenerList.add(listener);
+    protected void onPullStart(int dir) {
+        switch (dir) {
+            case TOP:
+                if (topManager != null) topManager.onPullStart();
+                break;
+
+            case BOTTOM:
+                if (bottomManager != null) bottomManager.onPullStart();
+                break;
+
+            default:
+                Log.wtf(TAG, "[.onPullStart] Illegal state: " + dir);
+                break;
+        }
     }
 
     /**
-     * Removes a listener for top refresh requests
+     * Called when the pull threshold has been exceeded
      *
-     * @param listener The listener to remove
+     * The default behaviour simply updates the text in the default pulled views. When overriding
+     * this method, call the superclass method only if you intend to continue using the default
+     * pulled views.
+     *
+     * @param dir Can be either TOP or BOTTOM
      */
 
-    public void removeOnTopPullEventListener(OnPullEventListener listener) {
-        onTopPullEventListenerList.remove(listener);
+    protected void onPullThreshold(int dir) {
+        switch (dir) {
+            case TOP:
+                if (topManager != null) topManager.onPullThreshold();
+                break;
+
+            case BOTTOM:
+                if (bottomManager != null) bottomManager.onPullThreshold();
+                break;
+
+            default:
+                Log.wtf(TAG, "[.onPullThreshold] Illegal state: " + dir);
+                break;
+        }
     }
 
     /**
-     * Adds a listener for bottom refresh requests
+     * Called when a refresh request is sent due to the pull action.
      *
-     * @param listener The listener to add
+     * The default behaviour simply updates the text in the default pulled views. When overriding
+     * this method, call the superclass method only if you intend to continue using the default
+     * pulled views.
+     *
+     * @param listener Call the onRequestComplete method on this listener to notify that the request
+     *                 has been completed
+     * @param dir Can be either TOP or BOTTOM
      */
 
-    public void addOnBottomPullEventListener(OnPullEventListener listener) {
-        onBottomPullEventListenerList.add(listener);
+    protected void onRefreshRequest(final OnRequestCompleteListener listener, int dir) {
+        switch (dir) {
+            case TOP:
+                if (topManager != null) topManager.onRefreshRequest();
+                break;
+
+            case BOTTOM:
+                if (bottomManager != null) bottomManager.onRefreshRequest();
+                break;
+
+            default:
+                Log.wtf(TAG, "[.onRefreshRequest] Illegal state: " + dir);
+                break;
+        }
     }
 
     /**
-     * Removes a listener for bottom refresh requests
+     * Called when the refresh request has been completed.
      *
-     * @param listener The listener to remove
+     * The default behaviour simply updates the text in the default pulled views. When overriding
+     * this method, call the superclass method only if you intend to continue using the default
+     * pulled views.
+     *
+     * @param dir Can be either TOP or BOTTOM
      */
 
-    public void removeOnBottomPullEventListener(OnPullEventListener listener) {
-        onBottomPullEventListenerList.remove(listener);
+    protected void onRefreshRequestComplete(int dir) {
+        switch (dir) {
+            case TOP:
+                if (topManager != null) topManager.onRefreshRequestComplete();
+                break;
+
+            case BOTTOM:
+                if (bottomManager != null) bottomManager.onRefreshRequestComplete();
+                break;
+
+            default:
+                Log.wtf(TAG, "[.onRefreshRequestComplete] Illegal state: " + dir);
+                break;
+        }
+    }
+
+    /**
+     * Called when the pull action ends.
+     *
+     * The default behaviour simply updates the text in the default pulled views. When overriding
+     * this method, call the superclass method only if you intend to continue using the default
+     * pulled views.
+     *
+     * @param dir Can be either TOP or BOTTOM
+     */
+
+    protected void onPullEnd(int dir) {
+        switch (dir) {
+            case TOP:
+                if (topManager != null) topManager.onPullEnd();
+                break;
+
+            case BOTTOM:
+                if (bottomManager != null) bottomManager.onPullEnd();
+                break;
+
+            default:
+                Log.wtf(TAG, "[.onPullEnd] Illegal state: " + dir);
+                break;
+        }
     }
 
     /**
@@ -359,7 +352,6 @@ public class PullListFragment extends Fragment {
 
     public void setTopPulledView(int resId) {
         if (topManager != null) {
-            removeOnTopPullEventListener(topManager);
             topManager = null;
         }
         topPulledView.removeAllViews();
@@ -374,7 +366,6 @@ public class PullListFragment extends Fragment {
 
     public void setTopPulledView(View view) {
         if (topManager != null) {
-            removeOnTopPullEventListener(topManager);
             topManager = null;
         }
         if (view != null) {
@@ -403,7 +394,6 @@ public class PullListFragment extends Fragment {
 
     public void setBottomPulledView(int resId) {
         if (bottomManager != null) {
-            removeOnBottomPullEventListener(bottomManager);
             bottomManager = null;
         }
         bottomPulledView.removeAllViews();
@@ -418,7 +408,6 @@ public class PullListFragment extends Fragment {
 
     public void setBottomPulledView(View view) {
         if (bottomManager != null) {
-            removeOnBottomPullEventListener(bottomManager);
             bottomManager = null;
         }
         if (view != null) {
@@ -427,18 +416,6 @@ public class PullListFragment extends Fragment {
         } else {
             throw new NullPointerException("PullListFragment.setBottomPulledView: The view cannot be null");
         }
-    }
-
-    /**
-     * Listens for when the waiting state is reached for the top pulled view
-     */
-
-    public static interface OnPullEventListener {
-        public void onStartPull();
-        public void onThresholdPassed();
-        public void onRefreshRequest(OnRequestCompleteListener listener);
-        public void onRequestComplete();
-        public void onEndPull();
     }
 
     /**
@@ -668,7 +645,6 @@ public class PullListFragment extends Fragment {
         private void recomputeTravel() {
             switch (state) {
                 case PULL_TOP_THRESHOLD:
-                    parent.onTopThresholdPassed();
                 case PULL_TOP:
                 case PULL_TOP_WAITING:
                 case PULL_TOP_THRESHOLD_RELEASED:
@@ -677,7 +653,6 @@ public class PullListFragment extends Fragment {
                     break;
 
                 case PULL_BOTTOM_THRESHOLD:
-                    parent.onBottomThresholdPassed();
                 case PULL_BOTTOM:
                 case PULL_BOTTOM_WAITING:
                 case PULL_BOTTOM_THRESHOLD_RELEASED:
@@ -701,11 +676,11 @@ public class PullListFragment extends Fragment {
             if (state == State.NORMAL) {
                 switch (state) {
                     case PULL_TOP_RELEASED:
-                        parent.onTopEndPull();
+                        parent.onPullEnd(PullListFragment.TOP);
                         break;
 
                     case PULL_BOTTOM_RELEASED:
-                        parent.onBottomEndPull();
+                        parent.onPullEnd(PullListFragment.BOTTOM);
                         break;
                 }
             }
@@ -724,19 +699,19 @@ public class PullListFragment extends Fragment {
                     break;
 
                 case PULL_TOP:
-                    parent.onTopStartPull();
+                    parent.onPullStart(PullListFragment.TOP);
                     break;
 
                 case PULL_TOP_THRESHOLD:
-                    parent.onTopThresholdPassed();
+                    parent.onPullThreshold(PullListFragment.TOP);
                     break;
 
                 case PULL_BOTTOM:
-                    parent.onBottomStartPull();
+                    parent.onPullStart(PullListFragment.BOTTOM);
                     break;
 
                 case PULL_BOTTOM_THRESHOLD:
-                    parent.onBottomThresholdPassed();
+                    parent.onPullThreshold(PullListFragment.BOTTOM);
                     break;
 
                 case PULL_TOP_RELEASED:
@@ -752,7 +727,7 @@ public class PullListFragment extends Fragment {
                     previousIntOffset = topContentSize;
                     totalOffset = topContentSize;
                     recomputeTravel();
-                    parent.onTopRefreshRequest();
+                    parent.onRefreshRequest(this, PullListFragment.TOP);
                     break;
 
                 case PULL_BOTTOM_WAITING:
@@ -761,7 +736,7 @@ public class PullListFragment extends Fragment {
                     previousIntOffset = -bottomContentSize;
                     totalOffset = -bottomContentSize;
                     recomputeTravel();
-                    parent.onBottomRefreshRequest();
+                    parent.onRefreshRequest(this, PullListFragment.BOTTOM);
                     break;
             }
         }
@@ -774,12 +749,12 @@ public class PullListFragment extends Fragment {
             switch (state) {
                 case PULL_TOP_WAITING:
                     setState(State.PULL_TOP_RELEASED);
-                    parent.onTopRequestComplete();
+                    parent.onRefreshRequestComplete(PullListFragment.TOP);
                     break;
 
                 case PULL_BOTTOM_WAITING:
                     setState(State.PULL_BOTTOM_RELEASED);
-                    parent.onBottomRequestComplete();
+                    parent.onRefreshRequestComplete(PullListFragment.BOTTOM);
                     break;
 
                 default:
@@ -1010,7 +985,7 @@ public class PullListFragment extends Fragment {
      * A convenient class to manage default pulled view behaviour
      */
 
-    public static class DefaultPulledView extends LinearLayout implements OnPullEventListener {
+    public static class DefaultPulledView extends LinearLayout {
 
         private TextView statusText;
         private ProgressBar progressBar;
@@ -1094,33 +1069,28 @@ public class PullListFragment extends Fragment {
             completeText = text;
         }
 
-        @Override
-        public void onRequestComplete() {
+        public void onRefreshRequestComplete() {
             statusText.setText(completeText);
             progressBar.setVisibility(INVISIBLE);
             invalidate();
         }
 
-        @Override
-        public void onEndPull() {
+        public void onPullEnd() {
             // do nothing
         }
 
-        @Override
-        public void onRefreshRequest(OnRequestCompleteListener listener) {
+        public void onRefreshRequest() {
             statusText.setText(refreshingText);
             progressBar.setVisibility(VISIBLE);
             invalidate();
         }
 
-        @Override
-        public void onStartPull() {
+        public void onPullStart() {
             statusText.setText(startPullText);
             invalidate();
         }
 
-        @Override
-        public void onThresholdPassed() {
+        public void onPullThreshold() {
             statusText.setText(thresholdPassedText);
             invalidate();
         }

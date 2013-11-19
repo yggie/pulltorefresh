@@ -10,7 +10,7 @@
     tools:context=".MainActivity" >
 
     <fragment
-        android:name="com.github.yggie.pulltorefresh.PullListFragment"
+        android:name="com.github.yggie.pulltorefresh.sample.SamplePullListFragment"
         android:id="@+id/pull_fragment"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
