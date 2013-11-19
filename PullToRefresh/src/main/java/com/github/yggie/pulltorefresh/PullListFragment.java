@@ -26,6 +26,7 @@
 package com.github.yggie.pulltorefresh;
 
 import android.content.Context;
+import android.graphics.Canvas;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
@@ -63,7 +64,7 @@ public class PullListFragment extends Fragment {
     private DefaultPulledView bottomManager;
 
     /** the contained views */
-    private RelativeLayout layout;
+    private CustomRelativeLayout layout;
     private FrameLayout topPulledView;
     private ListView listView;
     private FrameLayout bottomPulledView;
@@ -73,6 +74,9 @@ public class PullListFragment extends Fragment {
 
     /** handles scrolling behaviour */
     private final PullEffectScroller scroller = new PullEffectScroller(this);
+
+    /** the accumulated offset for the views */
+    private int accumulatedOffset = 0;
 
     /**
      * Creates all the views programmatically
@@ -88,14 +92,18 @@ public class PullListFragment extends Fragment {
         final Context context = getActivity();
 
         // setup the list view
-        listView = new CustomListView(context);
-        listView.setLayoutParams(new RelativeLayout.LayoutParams(
-                RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT));
+        listView = new CustomListView(this);
+        RelativeLayout.LayoutParams listViewParams = new RelativeLayout.LayoutParams(
+                RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT);
+        listViewParams.addRule(RelativeLayout.ALIGN_PARENT_TOP, RelativeLayout.TRUE);
+        listViewParams.addRule(RelativeLayout.ALIGN_PARENT_LEFT, RelativeLayout.TRUE);
+        listView.setLayoutParams(listViewParams);
 
         // setup top pulled view
         RelativeLayout.LayoutParams topViewParams = new RelativeLayout.LayoutParams(
                 RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
         topViewParams.addRule(RelativeLayout.ALIGN_PARENT_TOP, RelativeLayout.TRUE);
+        topViewParams.addRule(RelativeLayout.ALIGN_PARENT_LEFT, RelativeLayout.TRUE);
         FrameLayout topFrameLayout = new FrameLayout(context);
         topFrameLayout.setLayoutParams(topViewParams);
         // setup the default child of the FrameLayout
@@ -108,6 +116,7 @@ public class PullListFragment extends Fragment {
         RelativeLayout.LayoutParams bottomViewParams = new RelativeLayout.LayoutParams(
                 RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
         bottomViewParams.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM, RelativeLayout.TRUE);
+        bottomViewParams.addRule(RelativeLayout.ALIGN_PARENT_LEFT, RelativeLayout.TRUE);
         FrameLayout bottomFrameLayout = new FrameLayout(context);
         bottomFrameLayout.setLayoutParams(bottomViewParams);
         // setup the default child in the FrameLayout
@@ -116,7 +125,7 @@ public class PullListFragment extends Fragment {
         bottomFrameLayout.addView(bottomManager);
         bottomPulledView = bottomFrameLayout;
 
-        layout = new CustomRelativeLayout(context);
+        layout = new CustomRelativeLayout(this);
         layout.addView(topPulledView);
         layout.addView(bottomPulledView);
         layout.addView(listView);
@@ -140,6 +149,8 @@ public class PullListFragment extends Fragment {
         listView.setOnScrollListener(scroller);
     }
 
+
+
     /**
      * A convenient method to set the layout offset
      *
@@ -147,9 +158,16 @@ public class PullListFragment extends Fragment {
      */
 
     private void setPullOffset(int offset) {
-        topPulledView.offsetTopAndBottom(offset);
-        listView.offsetTopAndBottom(offset);
-        bottomPulledView.offsetTopAndBottom(offset);
+        accumulatedOffset += offset;
+        ViewCompat.postInvalidateOnAnimation(layout);
+    }
+
+    /**
+     * A convenient method to undo all offset changes
+     */
+
+    private void undoPullOffset() {
+        setPullOffset(-accumulatedOffset);
     }
 
     /**
@@ -430,21 +448,30 @@ public class PullListFragment extends Fragment {
      * This class extends RelativeLayout to listen to changes in the layout
      */
 
-    private class CustomRelativeLayout extends RelativeLayout {
+    private static class CustomRelativeLayout extends RelativeLayout {
 
-        public CustomRelativeLayout(Context context) {
-            super(context);
+        private PullListFragment parent;
+
+        public CustomRelativeLayout(PullListFragment parent) {
+            super(parent.getActivity());
+            this.parent = parent;
+        }
+
+        @Override
+        protected void dispatchDraw(Canvas canvas) {
+            canvas.translate(0, parent.accumulatedOffset);
+            super.dispatchDraw(canvas);
         }
 
         @Override
         protected void onLayout(boolean changed, int l, int t, int r, int b) {
             super.onLayout(changed, l, t, r, b);
-            topPulledView.offsetTopAndBottom(-topPulledView.getHeight());
-            bottomPulledView.offsetTopAndBottom(bottomPulledView.getHeight());
+            parent.topPulledView.offsetTopAndBottom(-parent.topPulledView.getHeight());
+            parent.bottomPulledView.offsetTopAndBottom(parent.bottomPulledView.getHeight());
 
             // report changes to the scroller
-            scroller.onTopPulledViewLayout(topPulledView.getChildAt(0));
-            scroller.onBottomPulledViewLayout(bottomPulledView.getChildAt(0));
+            parent.scroller.onTopPulledViewLayout(parent.topPulledView.getChildAt(0));
+            parent.scroller.onBottomPulledViewLayout(parent.bottomPulledView.getChildAt(0));
         }
     }
 
@@ -452,29 +479,24 @@ public class PullListFragment extends Fragment {
      * This class extends ListView to capture additional information
      */
 
-    private class CustomListView extends ListView {
+    private static class CustomListView extends ListView {
 
-        public CustomListView(Context context) {
-            super(context);
-        }
+        PullListFragment parent;
 
-        public CustomListView(Context context, AttributeSet attrs) {
-            super(context, attrs);
-        }
-
-        public CustomListView(Context context, AttributeSet attrs, int defaultStyle) {
-            super(context, attrs, defaultStyle);
+        public CustomListView(PullListFragment parent) {
+            super(parent.getActivity());
+            this.parent = parent;
         }
 
         @Override
         protected void onOverScrolled(int scrollX, int scrollY, boolean clampedX, boolean clampedY) {
             super.onOverScrolled(scrollX, scrollY, clampedX, clampedY);
-            scroller.onOverScrolled(clampedY);
+            parent.scroller.onOverScrolled(clampedY);
         }
 
         @Override
         public boolean onTouchEvent(MotionEvent e) {
-            return scroller.onTouchEvent(e) || super.onTouchEvent(e);
+            return parent.scroller.onTouchEvent(e) || super.onTouchEvent(e);
         }
     }
 
@@ -524,10 +546,7 @@ public class PullListFragment extends Fragment {
         public void onScroll(AbsListView absListView, int firstVisibleItem, int visibleItemCount,
                              int totalItemCount) {
             allowTopPull = (firstVisibleItem == 0);
-            allowBottomPull = !allowTopPull;
-            if (allowTopPull && visibleItemCount == totalItemCount) {
-                allowBottomPull = true;
-            }
+            allowBottomPull = (firstVisibleItem + visibleItemCount) == totalItemCount;
         }
 
         /** possible scrolling states */
@@ -569,6 +588,7 @@ public class PullListFragment extends Fragment {
             // default scrolling parameters
             damping = 0.02f;
             easing = 0.7f;
+            state = State.NORMAL; // avoids a silly null pointer exception later
         }
 
         /**
@@ -674,23 +694,29 @@ public class PullListFragment extends Fragment {
 
         private void setState(final State state) {
             if (state == State.NORMAL) {
-                switch (state) {
+                switch (this.state) {
+                    case PULL_TOP:
+                    case PULL_TOP_THRESHOLD:
                     case PULL_TOP_RELEASED:
                         parent.onPullEnd(PullListFragment.TOP);
                         break;
 
+                    case PULL_BOTTOM:
+                    case PULL_BOTTOM_THRESHOLD:
                     case PULL_BOTTOM_RELEASED:
                         parent.onPullEnd(PullListFragment.BOTTOM);
                         break;
+
+                    default:
+                        Log.d(TAG, "[setState] Illegal state: " + this.state + " before NORMAL");
                 }
             }
 
             this.state = state;
-            Log.d(TAG, state.name());
 
             switch (state) {
                 case NORMAL:
-                    parent.setPullOffset(-(int)totalOffset);
+                    parent.undoPullOffset();
                     isOverScrolled = false;
                     totalOffset = 0.0f;
                     previousIntOffset = 0;
@@ -738,7 +764,13 @@ public class PullListFragment extends Fragment {
                     recomputeTravel();
                     parent.onRefreshRequest(this, PullListFragment.BOTTOM);
                     break;
+
+                default:
+                    Log.d(TAG, "[setState] Unhandled state: " + state.name());
+                    break;
             }
+
+            Log.d(TAG, state.name() + " current offset = " + totalOffset);
         }
 
         /**
@@ -746,6 +778,7 @@ public class PullListFragment extends Fragment {
          */
 
         public void onRequestComplete() {
+            Log.d(TAG, "Called");
             switch (state) {
                 case PULL_TOP_WAITING:
                     setState(State.PULL_TOP_RELEASED);
@@ -847,6 +880,8 @@ public class PullListFragment extends Fragment {
 
                                     if (state == State.PULL_TOP && totalOffset > topContentSize) {
                                         setState(State.PULL_TOP_THRESHOLD);
+                                    } else if (totalOffset <= 0) {
+                                        setState(State.NORMAL);
                                     }
                                 } else {
                                     // single order system response
@@ -855,11 +890,12 @@ public class PullListFragment extends Fragment {
 
                                     if (state == State.PULL_BOTTOM && totalOffset < -bottomContentSize) {
                                         setState(State.PULL_BOTTOM_THRESHOLD);
+                                    } else if (totalOffset >= 0) {
+                                        setState(State.NORMAL);
                                     }
                                 }
 
                                 parent.setPullOffset((int) totalOffset - previousIntOffset);
-                                ViewCompat.postInvalidateOnAnimation(parent.layout);
                                 processed = true;
                                 break;
                             }
@@ -975,7 +1011,7 @@ public class PullListFragment extends Fragment {
                     break;
 
                 default:
-                    Log.wtf(TAG, "[.run] Illegal state in running method: " + state.name());
+                    Log.wtf(TAG, "[run] Illegal state in running method: " + state.name());
                     break;
             }
         }
