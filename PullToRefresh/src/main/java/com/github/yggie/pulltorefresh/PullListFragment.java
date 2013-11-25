@@ -53,6 +53,21 @@ public class PullListFragment extends Fragment {
     public static final int TOP     = 0;
     public static final int BOTTOM  = 1;
 
+    /** possible scrolling states */
+    public enum ScrollState {
+        NORMAL,
+        PULL_TOP,
+        PULL_TOP_THRESHOLD,
+        PULL_TOP_RELEASED,
+        PULL_TOP_THRESHOLD_RELEASED,
+        PULL_TOP_WAITING,
+        PULL_BOTTOM,
+        PULL_BOTTOM_THRESHOLD,
+        PULL_BOTTOM_RELEASED,
+        PULL_BOTTOM_THRESHOLD_RELEASED,
+        PULL_BOTTOM_WAITING
+    }
+
     /** log identifier */
     private static final String TAG = PullListFragment.class.getSimpleName();
 
@@ -61,7 +76,7 @@ public class PullListFragment extends Fragment {
     private DefaultPulledView bottomManager;
 
     /** the contained views */
-    private CustomRelativeLayout layout;
+    private PullToRefreshLayout layout;
     private FrameLayout topPulledView;
     private ListView listView;
     private FrameLayout bottomPulledView;
@@ -80,7 +95,7 @@ public class PullListFragment extends Fragment {
      *
      * @param inflater The LayoutInflater
      * @param container The parent container
-     * @param savedInstanceState The saved state
+     * @param savedInstanceState The saved scrollState
      * @return The inflated view
      */
 
@@ -128,7 +143,7 @@ public class PullListFragment extends Fragment {
         bottomFrameLayout.addView(bottomManager);
         bottomPulledView = bottomFrameLayout;
 
-        layout = new CustomRelativeLayout(this);
+        layout = new PullToRefreshLayout(this);
         layout.addView(topPulledView);
         layout.addView(bottomPulledView);
         layout.addView(listView);
@@ -140,7 +155,7 @@ public class PullListFragment extends Fragment {
      * Contains initialization functions which require the views to be ready
      *
      * @param view The root view of the fragment
-     * @param savedInstanceState The saved state
+     * @param savedInstanceState The saved scrollState
      */
 
     @Override
@@ -181,9 +196,10 @@ public class PullListFragment extends Fragment {
      * pulled views.
      *
      * @param dir Can be either TOP or BOTTOM
+     * @param previousState The previous scroll state
      */
 
-    protected void onPullStart(int dir) {
+    protected void onPullStart(final int dir, final ScrollState previousState) {
         switch (dir) {
             case TOP:
                 if (topManager != null) topManager.onPullStart();
@@ -194,7 +210,7 @@ public class PullListFragment extends Fragment {
                 break;
 
             default:
-                Log.wtf(TAG, "[.onPullStart] Illegal state: " + dir);
+                Log.wtf(TAG, "[.onPullStart] Illegal scrollState: " + dir);
                 break;
         }
     }
@@ -207,9 +223,10 @@ public class PullListFragment extends Fragment {
      * pulled views.
      *
      * @param dir Can be either TOP or BOTTOM
+     * @param previousState The previous scroll state
      */
 
-    protected void onPullThreshold(int dir) {
+    protected void onPullThreshold(final int dir, final ScrollState previousState) {
         switch (dir) {
             case TOP:
                 if (topManager != null) topManager.onPullThreshold();
@@ -220,7 +237,7 @@ public class PullListFragment extends Fragment {
                 break;
 
             default:
-                Log.wtf(TAG, "[.onPullThreshold] Illegal state: " + dir);
+                Log.wtf(TAG, "[.onPullThreshold] Illegal scrollState: " + dir);
                 break;
         }
     }
@@ -235,9 +252,11 @@ public class PullListFragment extends Fragment {
      * @param listener Call the onRequestComplete method on this listener to notify that the request
      *                 has been completed
      * @param dir Can be either TOP or BOTTOM
+     * @param previousState The previous scroll state
      */
 
-    protected void onRefreshRequest(final OnRequestCompleteListener listener, int dir) {
+    protected void onRefreshRequest(final OnRequestCompleteListener listener, final int dir,
+                                    final ScrollState previousState) {
         switch (dir) {
             case TOP:
                 if (topManager != null) topManager.onRefreshRequest();
@@ -248,7 +267,7 @@ public class PullListFragment extends Fragment {
                 break;
 
             default:
-                Log.wtf(TAG, "[.onRefreshRequest] Illegal state: " + dir);
+                Log.wtf(TAG, "[.onRefreshRequest] Illegal scrollState: " + dir);
                 break;
         }
     }
@@ -263,7 +282,7 @@ public class PullListFragment extends Fragment {
      * @param dir Can be either TOP or BOTTOM
      */
 
-    protected void onRefreshRequestComplete(int dir) {
+    protected void onRefreshRequestComplete(final int dir) {
         switch (dir) {
             case TOP:
                 if (topManager != null) topManager.onRefreshRequestComplete();
@@ -274,7 +293,7 @@ public class PullListFragment extends Fragment {
                 break;
 
             default:
-                Log.wtf(TAG, "[.onRefreshRequestComplete] Illegal state: " + dir);
+                Log.wtf(TAG, "[.onRefreshRequestComplete] Illegal scrollState: " + dir);
                 break;
         }
     }
@@ -287,9 +306,10 @@ public class PullListFragment extends Fragment {
      * pulled views.
      *
      * @param dir Can be either TOP or BOTTOM
+     * @param previousState The previous scroll state
      */
 
-    protected void onPullEnd(int dir) {
+    protected void onPullEnd(final int dir, final ScrollState previousState) {
         switch (dir) {
             case TOP:
                 if (topManager != null) topManager.onPullEnd();
@@ -300,9 +320,20 @@ public class PullListFragment extends Fragment {
                 break;
 
             default:
-                Log.wtf(TAG, "[.onPullEnd] Illegal state: " + dir);
+                Log.wtf(TAG, "[.onPullEnd] Illegal scrollState: " + dir);
                 break;
         }
+    }
+
+    /**
+     * A convenient method to set the background color of the layout
+     *
+     * @param color
+     */
+
+    public void setBackgroundColor(int color) {
+        listView.setBackgroundColor(color);
+        listView.setCacheColorHint(color);
     }
 
     /**
@@ -464,11 +495,11 @@ public class PullListFragment extends Fragment {
      * This class extends RelativeLayout to listen to changes in the layout
      */
 
-    private static class CustomRelativeLayout extends RelativeLayout {
+    private static class PullToRefreshLayout extends RelativeLayout {
 
         private final PullListFragment parent;
 
-        public CustomRelativeLayout(PullListFragment parent) {
+        public PullToRefreshLayout(PullListFragment parent) {
             super(parent.getActivity());
             this.parent = parent;
         }
@@ -551,8 +582,8 @@ public class PullListFragment extends Fragment {
 
         private final PullListFragment parent;
 
-        /** scrolling state */
-        private State state;
+        /** scrolling scrollState */
+        private ScrollState scrollState;
 
         @Override
         public void onScrollStateChanged(AbsListView absListView, int scrollState) {
@@ -564,21 +595,6 @@ public class PullListFragment extends Fragment {
                              int totalItemCount) {
             allowTopPull = (firstVisibleItem == 0);
             allowBottomPull = (firstVisibleItem + visibleItemCount) == totalItemCount;
-        }
-
-        /** possible scrolling states */
-        public enum State {
-            NORMAL,
-            PULL_TOP,
-            PULL_TOP_THRESHOLD,
-            PULL_TOP_RELEASED,
-            PULL_TOP_THRESHOLD_RELEASED,
-            PULL_TOP_WAITING,
-            PULL_BOTTOM,
-            PULL_BOTTOM_THRESHOLD,
-            PULL_BOTTOM_RELEASED,
-            PULL_BOTTOM_THRESHOLD_RELEASED,
-            PULL_BOTTOM_WAITING
         }
 
         /**
@@ -604,18 +620,18 @@ public class PullListFragment extends Fragment {
             allowBottomPull = true;
 
             // default scrolling parameters
-            damping = 0.02f;
+            damping = 0.01f;
             easing = 0.7f;
-            state = State.NORMAL; // avoids a silly null pointer exception later
+            scrollState = ScrollState.NORMAL; // avoids a silly null pointer exception later
         }
 
         /**
-         * Initializes the state of the scroller
+         * Initializes the scrollState of the scroller
          */
 
         private void initialize() {
-            // scrolling state
-            setState(State.NORMAL);
+            // scrolling scrollState
+            setScrollState(ScrollState.NORMAL);
         }
 
         /**
@@ -626,7 +642,7 @@ public class PullListFragment extends Fragment {
 
         private void enableTopPull(boolean enable) {
             if (topPullEnabled && !enable) {
-                setState(State.NORMAL);
+                setScrollState(ScrollState.NORMAL);
             }
             topPullEnabled = enable;
         }
@@ -639,13 +655,13 @@ public class PullListFragment extends Fragment {
 
         private void enableBottomPull(boolean enable) {
             if (bottomPullEnabled && !enable) {
-                setState(State.NORMAL);
+                setScrollState(ScrollState.NORMAL);
             }
             bottomPullEnabled = enable;
         }
 
         /**
-         * Sets the over-scroll state of the ListView
+         * Sets the over-scroll scrollState of the ListView
          *
          * @param isOverScrolled A flag indicating if the ListView has over-scrolled
          */
@@ -681,7 +697,7 @@ public class PullListFragment extends Fragment {
          */
 
         private void recomputeTravel() {
-            switch (state) {
+            switch (scrollState) {
                 case PULL_TOP_THRESHOLD:
                 case PULL_TOP:
                 case PULL_TOP_WAITING:
@@ -699,41 +715,40 @@ public class PullListFragment extends Fragment {
                     break;
 
                 default:
-                    Log.wtf(TAG, "[.recomputeTravel] unhandled state: " + state.name());
+                    Log.wtf(TAG, "[.recomputeTravel] unhandled scrollState: " + scrollState.name());
                     break;
             }
         }
 
         /**
-         * Sets the state and calls other code for state changes
+         * Sets the scrollState and calls other code for scrollState changes
          *
-         * @param state The new scrolling state
+         * @param scrollState The new scrolling scrollState
          */
 
-        private void setState(final State state) {
-            if (state == State.NORMAL) {
-                switch (this.state) {
-                    case PULL_TOP:
-                    case PULL_TOP_THRESHOLD:
-                    case PULL_TOP_RELEASED:
-                        parent.onPullEnd(PullListFragment.TOP);
-                        break;
+        private void setScrollState(final ScrollState scrollState) {
+            final ScrollState oldScrollState = this.scrollState;
+            this.scrollState = scrollState;
 
-                    case PULL_BOTTOM:
-                    case PULL_BOTTOM_THRESHOLD:
-                    case PULL_BOTTOM_RELEASED:
-                        parent.onPullEnd(PullListFragment.BOTTOM);
-                        break;
-
-                    default:
-                        Log.d(TAG, "[setState] Illegal state: " + this.state + " before NORMAL");
-                }
-            }
-
-            this.state = state;
-
-            switch (state) {
+            switch (scrollState) {
                 case NORMAL:
+                    switch (oldScrollState) {
+                        case PULL_TOP:
+                        case PULL_TOP_THRESHOLD:
+                        case PULL_TOP_RELEASED:
+                            parent.onPullEnd(PullListFragment.TOP, oldScrollState);
+                            break;
+
+                        case PULL_BOTTOM:
+                        case PULL_BOTTOM_THRESHOLD:
+                        case PULL_BOTTOM_RELEASED:
+                            parent.onPullEnd(PullListFragment.BOTTOM, oldScrollState);
+                            break;
+
+                        default:
+                            Log.wtf(TAG, "[setScrollState] Illegal scrollState: " + oldScrollState.name() + " before NORMAL");
+                            break;
+                    }
                     parent.undoPullOffset();
                     isOverScrolled = false;
                     totalOffset = 0.0f;
@@ -743,19 +758,21 @@ public class PullListFragment extends Fragment {
                     break;
 
                 case PULL_TOP:
-                    parent.onPullStart(PullListFragment.TOP);
+                    if (oldScrollState != ScrollState.PULL_TOP_THRESHOLD) {
+                        parent.onPullStart(PullListFragment.TOP, oldScrollState);
+                    }
                     break;
 
                 case PULL_TOP_THRESHOLD:
-                    parent.onPullThreshold(PullListFragment.TOP);
+                    parent.onPullThreshold(PullListFragment.TOP, oldScrollState);
                     break;
 
                 case PULL_BOTTOM:
-                    parent.onPullStart(PullListFragment.BOTTOM);
+                    parent.onPullStart(PullListFragment.BOTTOM, oldScrollState);
                     break;
 
                 case PULL_BOTTOM_THRESHOLD:
-                    parent.onPullThreshold(PullListFragment.BOTTOM);
+                    parent.onPullThreshold(PullListFragment.BOTTOM, oldScrollState);
                     break;
 
                 case PULL_TOP_RELEASED:
@@ -771,7 +788,7 @@ public class PullListFragment extends Fragment {
                     previousIntOffset = topContentSize;
                     totalOffset = topContentSize;
                     recomputeTravel();
-                    parent.onRefreshRequest(this, PullListFragment.TOP);
+                    parent.onRefreshRequest(this, PullListFragment.TOP, oldScrollState);
                     break;
 
                 case PULL_BOTTOM_WAITING:
@@ -780,15 +797,15 @@ public class PullListFragment extends Fragment {
                     previousIntOffset = -bottomContentSize;
                     totalOffset = -bottomContentSize;
                     recomputeTravel();
-                    parent.onRefreshRequest(this, PullListFragment.BOTTOM);
+                    parent.onRefreshRequest(this, PullListFragment.BOTTOM, oldScrollState);
                     break;
 
                 default:
-                    Log.d(TAG, "[setState] Unhandled state: " + state.name());
+                    Log.d(TAG, "[setScrollState] Unhandled scrollState: " + scrollState.name());
                     break;
             }
 
-            Log.d(TAG, state.name() + " current offset = " + totalOffset);
+            Log.d(TAG, scrollState.name() + " current offset = " + totalOffset);
         }
 
         /**
@@ -796,19 +813,19 @@ public class PullListFragment extends Fragment {
          */
 
         public void onRequestComplete() {
-            switch (state) {
+            switch (scrollState) {
                 case PULL_TOP_WAITING:
                     parent.onRefreshRequestComplete(PullListFragment.TOP);
-                    setState(State.PULL_TOP_RELEASED);
+                    setScrollState(ScrollState.PULL_TOP_RELEASED);
                     break;
 
                 case PULL_BOTTOM_WAITING:
                     parent.onRefreshRequestComplete(PullListFragment.BOTTOM);
-                    setState(State.PULL_BOTTOM_RELEASED);
+                    setScrollState(ScrollState.PULL_BOTTOM_RELEASED);
                     break;
 
                 default:
-                    Log.wtf(TAG, "[.onRequestComplete] Illegal scrolling state: " + state.name());
+                    Log.wtf(TAG, "[.onRequestComplete] Illegal scrolling scrollState: " + scrollState.name());
                     break;
             }
         }
@@ -831,22 +848,22 @@ public class PullListFragment extends Fragment {
                 case MotionEvent.ACTION_DOWN:
                     stop();
                     oldY = e.getY();
-                    if (isOverScrolled && state != State.NORMAL) {
+                    if (isOverScrolled && scrollState != ScrollState.NORMAL) {
                         // recompute the totalTravel from totalOffset
                         recomputeTravel();
                     }
-                    switch (state) {
+                    switch (scrollState) {
                         case PULL_TOP_RELEASED:
-                            setState(State.PULL_TOP);
+                            setScrollState(ScrollState.PULL_TOP);
                             break;
                         case PULL_BOTTOM_RELEASED:
-                            setState(State.PULL_BOTTOM);
+                            setScrollState(ScrollState.PULL_BOTTOM);
                             break;
                         case PULL_TOP_THRESHOLD_RELEASED:
-                            setState(State.PULL_TOP_THRESHOLD);
+                            setScrollState(ScrollState.PULL_TOP_THRESHOLD);
                             break;
                         case PULL_BOTTOM_THRESHOLD_RELEASED:
-                            setState(State.PULL_BOTTOM_THRESHOLD);
+                            setScrollState(ScrollState.PULL_BOTTOM_THRESHOLD);
                             break;
 
                         default:
@@ -867,12 +884,12 @@ public class PullListFragment extends Fragment {
                         break;
                     }
 
-                    switch (state) {
+                    switch (scrollState) {
                         case NORMAL:
                             if (dy > 0.0f && topPullEnabled && allowTopPull) {
-                                setState(State.PULL_TOP);
+                                setScrollState(ScrollState.PULL_TOP);
                             } else if (dy < 0.0f && bottomPullEnabled && allowBottomPull) {
-                                setState(State.PULL_BOTTOM);
+                                setScrollState(ScrollState.PULL_BOTTOM);
                             } else {
                                 isOverScrolled = false;
                             }
@@ -889,25 +906,29 @@ public class PullListFragment extends Fragment {
                             totalTravel += dy;
                             previousIntOffset = (int)totalOffset;
 
-                            if (state == State.PULL_TOP || state == State.PULL_TOP_THRESHOLD) {
+                            if (scrollState == ScrollState.PULL_TOP || scrollState == ScrollState.PULL_TOP_THRESHOLD) {
                                 // single order system response
                                 totalOffset = Math.signum(totalTravel) * topMaxLength *
                                         (1.0f - (float)Math.exp(-damping * Math.abs(totalTravel)));
 
-                                if (state == State.PULL_TOP && totalOffset > topContentSize) {
-                                    setState(State.PULL_TOP_THRESHOLD);
+                                if (scrollState == ScrollState.PULL_TOP && totalOffset > topContentSize) {
+                                    setScrollState(ScrollState.PULL_TOP_THRESHOLD);
+                                } else if (scrollState == ScrollState.PULL_TOP_THRESHOLD && totalOffset < topContentSize) {
+                                    setScrollState(ScrollState.PULL_TOP);
                                 } else if (totalOffset <= 0) {
-                                    setState(State.NORMAL);
+                                    setScrollState(ScrollState.NORMAL);
                                 }
                             } else {
                                 // single order system response
                                 totalOffset = Math.signum(totalTravel) * bottomMaxLength *
                                         (1.0f - (float)Math.exp(-damping * Math.abs(totalTravel)));
 
-                                if (state == State.PULL_BOTTOM && totalOffset < -bottomContentSize) {
-                                    setState(State.PULL_BOTTOM_THRESHOLD);
+                                if (scrollState == ScrollState.PULL_BOTTOM && totalOffset < -bottomContentSize) {
+                                    setScrollState(ScrollState.PULL_BOTTOM_THRESHOLD);
+                                } else if (scrollState == ScrollState.PULL_BOTTOM_THRESHOLD && totalOffset > -bottomContentSize) {
+                                    setScrollState(ScrollState.PULL_BOTTOM);
                                 } else if (totalOffset >= 0) {
-                                    setState(State.NORMAL);
+                                    setScrollState(ScrollState.NORMAL);
                                 }
                             }
 
@@ -925,21 +946,21 @@ public class PullListFragment extends Fragment {
                  */
 
                 case MotionEvent.ACTION_UP:
-                    switch (state) {
+                    switch (scrollState) {
                         case PULL_TOP:
-                            setState(State.PULL_TOP_RELEASED);
+                            setScrollState(ScrollState.PULL_TOP_RELEASED);
                             break;
 
                         case PULL_BOTTOM:
-                            setState(State.PULL_BOTTOM_RELEASED);
+                            setScrollState(ScrollState.PULL_BOTTOM_RELEASED);
                             break;
 
                         case PULL_TOP_THRESHOLD:
-                            setState(State.PULL_TOP_THRESHOLD_RELEASED);
+                            setScrollState(ScrollState.PULL_TOP_THRESHOLD_RELEASED);
                             break;
 
                         case PULL_BOTTOM_THRESHOLD:
-                            setState(State.PULL_BOTTOM_THRESHOLD_RELEASED);
+                            setScrollState(ScrollState.PULL_BOTTOM_THRESHOLD_RELEASED);
                             break;
 
                         default:
@@ -981,11 +1002,11 @@ public class PullListFragment extends Fragment {
 
         @Override
         public void run() {
-            switch (state) {
+            switch (scrollState) {
                 case PULL_TOP_RELEASED:
                 case PULL_BOTTOM_RELEASED:
                     if (Math.abs(totalOffset) < OVER_SCROLL_THRESHOLD) {
-                        setState(State.NORMAL);
+                        setScrollState(ScrollState.NORMAL);
                     } else {
                         previousIntOffset = (int)totalOffset;
                         // easing back to position
@@ -998,7 +1019,7 @@ public class PullListFragment extends Fragment {
 
                 case PULL_TOP_THRESHOLD_RELEASED:
                     if (Math.abs(totalOffset - topContentSize) < OVER_SCROLL_THRESHOLD) {
-                        setState(State.PULL_TOP_WAITING);
+                        setScrollState(ScrollState.PULL_TOP_WAITING);
                     } else {
                         previousIntOffset = (int)totalOffset;
                         // easing back to position
@@ -1012,7 +1033,7 @@ public class PullListFragment extends Fragment {
 
                 case PULL_BOTTOM_THRESHOLD_RELEASED:
                     if (Math.abs(totalOffset + bottomContentSize) < OVER_SCROLL_THRESHOLD) {
-                        setState(State.PULL_BOTTOM_WAITING);
+                        setScrollState(ScrollState.PULL_BOTTOM_WAITING);
                     } else {
                         previousIntOffset = (int)totalOffset;
                         // easing back to position
@@ -1025,7 +1046,7 @@ public class PullListFragment extends Fragment {
                     break;
 
                 default:
-                    Log.wtf(TAG, "[run] Illegal state in running method: " + state.name());
+                    Log.wtf(TAG, "[run] Illegal scrollState in running method: " + scrollState.name());
                     break;
             }
         }
