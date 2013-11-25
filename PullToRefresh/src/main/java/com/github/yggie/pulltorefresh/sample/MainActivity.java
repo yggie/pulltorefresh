@@ -7,8 +7,6 @@ import java.util.Map;
 import java.util.Random;
 
 import android.os.Bundle;
-import android.os.Handler;
-import android.app.Activity;
 import android.support.v4.app.FragmentActivity;
 import android.view.Menu;
 import android.widget.BaseAdapter;
