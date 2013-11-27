@@ -41,6 +41,12 @@ public class MainActivity extends FragmentActivity {
         return true;
     }
 
+    /**
+     * Generates some content for the test app
+     *
+     * @return
+     */
+
     private List<Map<String, String>> defaultList() {
         LinkedList<Map<String, String>> list = new LinkedList<Map<String, String>>();
 
@@ -51,6 +57,12 @@ public class MainActivity extends FragmentActivity {
         return list;
     }
 
+    /**
+     * Generates a map for the adapter to use
+     *
+     * @return
+     */
+
     private Map<String, String> generateMap() {
         Map<String, String> map = new HashMap<String, String>(3);
 
@@ -60,9 +72,16 @@ public class MainActivity extends FragmentActivity {
         return map;
     }
 
-    private static final String[] WORDS = { "I", "show", "me", "no", "yes", "boat", "go", "journey", "travel", "sky", "sink",
-            "banana", "sail", "wind", "trees", "island", "port", "signal", "sea", "water", "waves", "birds", "sun", "day", "is",
-            "will", "show", "in", "future", "time", "fish"};
+    private static final String[] WORDS = { "I", "show", "me", "no", "yes", "boat", "go", "journey",
+            "travel", "sky", "sink", "banana", "sail", "wind", "trees", "island", "port", "signal",
+            "sea", "water", "waves", "birds", "sun", "day", "is", "will", "show", "in", "future",
+            "time", "fish", "of", "wisdom", "whales", "clouds", "breeze", "blows" };
+
+    /**
+     * Generates a random sentence for the test application
+     *
+     * @return
+     */
 
     private String genContent() {
         final List<Integer> prev = new LinkedList<Integer>();
@@ -71,8 +90,12 @@ public class MainActivity extends FragmentActivity {
         final Random random = new Random();
         int length = random.nextInt(10) + 5;
 
-        for (int i = 0; i < length; i++) {
-            int r = -1;
+        int r;
+        while (prev.contains(Integer.valueOf(r = random.nextInt(WORDS.length))));
+        prev.add(Integer.valueOf(r));
+        sb.append(WORDS[r]);
+
+        for (int i = 1; i < length; i++) {
             while (prev.contains(Integer.valueOf(r = random.nextInt(WORDS.length))));
 
             prev.add(Integer.valueOf(r));

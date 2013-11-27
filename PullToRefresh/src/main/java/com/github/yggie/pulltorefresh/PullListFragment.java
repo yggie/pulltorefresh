@@ -33,6 +33,7 @@ import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.v4.app.Fragment;
+import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Gravity;
@@ -58,7 +59,6 @@ public class PullListFragment extends Fragment {
     public static final String TAG = PullListFragment.class.getSimpleName();
 
     /** bundle argument keys for xml attributes */
-    private static final String KEY_HAS_ATTRS       = "pulltorefresh_hasattrs";
     private static final String KEY_BACKGROUND      = "pulltorefresh_background";
     private static final String KEY_PADDING         = "pulltorefresh_padding";
     private static final String KEY_PADDING_TOP     = "pulltorefresh_paddingtop";
@@ -99,6 +99,8 @@ public class PullListFragment extends Fragment {
 
     /** the accumulated offset for the views */
     private int accumulatedOffset = 0;
+
+    private Bundle attributes = null;
 
     /** the default listener, sets a default time for refresh to complete */
     private PullCallbacksListener listener = new PullCallbacksListener() {
@@ -175,6 +177,7 @@ public class PullListFragment extends Fragment {
         topManager = new DefaultPulledView(this, true);
         topManager.setBackgroundColor(Color.CYAN); // for debugging
         topFrameLayout.addView(topManager);
+        scroller.addListener(topManager);
         topPulledView = topFrameLayout;
 
         // setup bottom pulled view
@@ -196,31 +199,30 @@ public class PullListFragment extends Fragment {
         layout.addView(bottomPulledView);
         layout.addView(listView);
 
-        // parse the XML attributes
-        Bundle args = getArguments();
-        if (args != null && args.getBoolean(KEY_HAS_ATTRS, false)) {
-            parseXmlAttributes(args);
+        // applies the XML attributes, if exists
+        if (attributes != null) {
+            applyXmlAttributes(attributes);
+            attributes = null;
         }
 
         return layout;
     }
 
     /**
-     * Parses the xml attributes sent through the Bundle object
+     * Applies the xml attributes sent through the Bundle object
      *
      * @param args The bundle object containing the xml attributes
      */
 
-    private void parseXmlAttributes(final Bundle args) {
+    private void applyXmlAttributes(final Bundle args) {
         if (args != null) {
-            // parse and set background color
+            // apply background color
             final int backgroundColor = args.getInt(KEY_BACKGROUND, 0);
             if (backgroundColor != 0) {
-                listView.setBackgroundColor(backgroundColor);
-                listView.setCacheColorHint(backgroundColor);
+                setBackgroundColor(backgroundColor);
             }
 
-            // parse and set padding
+            // apply padding
             int paddingTop = listView.getPaddingTop();
             int paddingBottom = listView.getPaddingBottom();
             int paddingLeft = listView.getPaddingLeft();
@@ -244,6 +246,58 @@ public class PullListFragment extends Fragment {
     }
 
     /**
+     * Parses the XML attributes contained in the TypedArray
+     *
+     * @param a The TypedArray object holding the attributes
+     */
+
+    private void parseXmlAttributes(TypedArray a) {
+        attributes = new Bundle();
+        final int initialSize = attributes.size();
+
+        // parse list background color attribute
+        final int backgroundColor = a.getColor(R.styleable.PullListFragment_list_background, 0);
+        if (backgroundColor != 0) {
+            attributes.putInt(KEY_BACKGROUND, backgroundColor);
+        }
+
+        // parse list padding attribute
+        final int padding = a.getDimensionPixelSize(R.styleable.PullListFragment_list_padding, -1);
+        if (padding != -1) {
+            attributes.putInt(KEY_PADDING, padding);
+        }
+
+        // parse list top padding attribute
+        final int paddingTop = a.getDimensionPixelSize(R.styleable.PullListFragment_list_paddingTop, -1);
+        if (paddingTop != -1) {
+            attributes.putInt(KEY_PADDING_TOP, paddingTop);
+        }
+
+        // parse list bottom padding attribute
+        final int paddingBottom = a.getDimensionPixelSize(R.styleable.PullListFragment_list_paddingBottom, -1);
+        if (paddingBottom != -1) {
+            attributes.putInt(KEY_PADDING_BOTTOM, paddingBottom);
+        }
+
+        // parse list left padding attribute
+        final int paddingLeft = a.getDimensionPixelSize(R.styleable.PullListFragment_list_paddingLeft, -1);
+        if (paddingLeft != -1) {
+            attributes.putInt(KEY_PADDING_LEFT, paddingLeft);
+        }
+
+        // parse list right padding attribute
+        final int paddingRight = a.getDimensionPixelSize(R.styleable.PullListFragment_list_paddingRight, -1);
+        if (paddingRight != -1) {
+            attributes.putInt(KEY_PADDING_RIGHT, paddingRight);
+        }
+
+        // finally deal with the cleanup
+        if (initialSize == attributes.size()) {
+            attributes = null;
+        }
+    }
+
+    /**
      * Called when a fragment is being created as part of a view layout inflation, typically from
      * setting the content view of an activity
      *
@@ -259,54 +313,7 @@ public class PullListFragment extends Fragment {
         TypedArray a = activity.obtainStyledAttributes(attrs, R.styleable.PullListFragment);
 
         if (a != null) {
-            // since onInflate is called before onAttach, we can still use the fragment arguments
-            Bundle args = getArguments();
-            if (args == null) {
-                args = new Bundle();
-            }
-
-            final int beforeSize = args.size();
-
-            // parse list background color attribute
-            final int backgroundColor = a.getColor(R.styleable.PullListFragment_list_background, 0);
-            if (backgroundColor != 0) {
-                args.putInt(KEY_BACKGROUND, backgroundColor);
-            }
-
-            // parse list padding attribute
-            final int padding = a.getDimensionPixelSize(R.styleable.PullListFragment_list_padding, -1);
-            if (padding != -1) {
-                args.putInt(KEY_PADDING, padding);
-            }
-
-            // parse list top padding attribute
-            final int paddingTop = a.getDimensionPixelSize(R.styleable.PullListFragment_list_paddingTop, -1);
-            if (paddingTop != -1) {
-                args.putInt(KEY_PADDING_TOP, paddingTop);
-            }
-
-            // parse list bottom padding attribute
-            final int paddingBottom = a.getDimensionPixelSize(R.styleable.PullListFragment_list_paddingBottom, -1);
-            if (paddingBottom != -1) {
-                args.putInt(KEY_PADDING_BOTTOM, paddingBottom);
-            }
-
-            // parse list left padding attribute
-            final int paddingLeft = a.getDimensionPixelSize(R.styleable.PullListFragment_list_paddingLeft, -1);
-            if (paddingLeft != -1) {
-                args.putInt(KEY_PADDING_LEFT, paddingLeft);
-            }
-
-            // parse list right padding attribute
-            final int paddingRight = a.getDimensionPixelSize(R.styleable.PullListFragment_list_paddingRight, -1);
-            if (paddingRight != -1) {
-                args.putInt(KEY_PADDING_RIGHT, paddingRight);
-            }
-
-            // finally deal with the cleanup
-            final boolean hasAttrs = !(beforeSize == args.size());
-            args.putBoolean(KEY_HAS_ATTRS, hasAttrs);
-            setArguments(args);
+            parseXmlAttributes(a);
             a.recycle();
         }
     }
@@ -616,6 +623,7 @@ public class PullListFragment extends Fragment {
         private boolean isOverScrolled;
         private float totalOffset;
         private int previousIntOffset;
+        private int delay;
         private float totalTravel;
         private float dy;
         private float oldY;
@@ -669,6 +677,7 @@ public class PullListFragment extends Fragment {
             // default scrolling parameters
             damping = 0.01f;
             easing = 0.7f;
+            delay = 1000;
             scrollState = ScrollState.NORMAL; // avoids a silly null pointer exception later
         }
 
@@ -963,19 +972,30 @@ public class PullListFragment extends Fragment {
         }
 
         /**
-         * Listens for a request completion
+         * Called when a request for refreshing data has been completed
          */
 
+        @Override
         public void onRequestComplete() {
             switch (scrollState) {
                 case PULL_TOP_WAITING:
                     onRequestComplete(true);
-                    setScrollState(ScrollState.PULL_TOP_RELEASED);
+                    parent.handler.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            setScrollState(ScrollState.PULL_TOP_RELEASED);
+                        }
+                    }, delay);
                     break;
 
                 case PULL_BOTTOM_WAITING:
                     onRequestComplete(false);
-                    setScrollState(ScrollState.PULL_BOTTOM_RELEASED);
+                    parent.handler.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            setScrollState(ScrollState.PULL_BOTTOM_RELEASED);
+                        }
+                    }, delay);
                     break;
 
                 default:
@@ -1220,11 +1240,8 @@ public class PullListFragment extends Fragment {
         private String refreshingText;
         private String completeText;
 
-        private final PullListFragment parent;
-
         public DefaultPulledView(PullListFragment parent, boolean isTop) {
             super(parent.getActivity());
-            this.parent = parent;
             initialize(isTop);
         }
 
@@ -1232,29 +1249,33 @@ public class PullListFragment extends Fragment {
             final Context context = getContext();
             final float logicalDensity = context.getResources().getDisplayMetrics().density;
 
-            final int pixelHeight = (int)(120.0f * logicalDensity + 0.5f);
-            final int paddingLarge = (int)(40.0f * logicalDensity + 0.5f);
-            final int paddingSmall = (int)(5.0f * logicalDensity + 0.5f);
-            this.setLayoutParams(new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, pixelHeight));
+            final int recommendedSize = (int)(48.0f * logicalDensity + 0.5f);
+            final int paddingLarge = (int)(32.0f * logicalDensity + 0.5f);
+            final int paddingMedium = (int)(16.0f * logicalDensity + 0.5f);
+            final int paddingSmall = (int)(8.0f * logicalDensity + 0.5f);
+            this.setLayoutParams(new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, 2 * recommendedSize));
             if (isTop) {
-                this.setPadding(0, paddingLarge, 0, paddingSmall);
+                this.setPadding(paddingLarge, paddingLarge, paddingMedium, paddingSmall);
             } else {
-                this.setPadding(0, paddingSmall, 0, paddingLarge);
+                this.setPadding(paddingLarge, paddingSmall, paddingMedium, paddingLarge);
             }
-            this.setGravity(Gravity.CENTER);
+            this.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
+            this.setOrientation(HORIZONTAL);
 
             progressBar = new ProgressBar(context);
-            progressBar.setLayoutParams(new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
+            progressBar.setLayoutParams(new LayoutParams(recommendedSize, recommendedSize));
             progressBar.setIndeterminate(true);
-            progressBar.setVisibility(View.INVISIBLE);
+            progressBar.setVisibility(INVISIBLE);
 
-            final int textIndent = (int)(10.0f * logicalDensity + 0.5f);
-            final int textWidth = (int)(300.0f * logicalDensity + 0.5f);
+            final int textIndent = (int)(8.0f * logicalDensity + 0.5f);
             statusText = new TextView(context);
-            statusText.setLayoutParams(new LayoutParams(textWidth, LayoutParams.WRAP_CONTENT));
+            statusText.setLayoutParams(new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
             statusText.setPadding(textIndent, 0, 0, 0);
             statusText.setTextSize(18.0f);
             statusText.setText("You should not be able to see this text");
+            statusText.setEllipsize(TextUtils.TruncateAt.END);
+            statusText.setLines(1);
+            statusText.setSingleLine();
 
             this.addView(progressBar);
             this.addView(statusText);
@@ -1300,33 +1321,29 @@ public class PullListFragment extends Fragment {
         @Override
         public void onPullStarted(ScrollState previousState, boolean isTop) {
             statusText.setText(startPullText);
-            invalidate();
         }
 
         @Override
         public void onPullThreshold(ScrollState previousState, boolean isTop) {
             statusText.setText(thresholdPassedText);
-            invalidate();
         }
 
         @Override
         public void onRefreshRequest(OnRequestCompleteListener listener, ScrollState previousState, boolean isTop) {
             statusText.setText(refreshingText);
             progressBar.setVisibility(VISIBLE);
-
-            invalidate();
         }
 
         @Override
         public void onRequestComplete(boolean isTop) {
             statusText.setText(completeText);
             progressBar.setVisibility(INVISIBLE);
+
             invalidate();
         }
 
         @Override
         public void onPullEnd(ScrollState previousState, boolean isTop) {
-
         }
     }
 }
