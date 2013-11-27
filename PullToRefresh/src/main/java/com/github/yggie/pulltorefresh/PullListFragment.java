@@ -303,6 +303,20 @@ public class PullListFragment extends Fragment {
                 }
             }
 
+            /**
+             * Apply custom empty view configurations
+             */
+
+            final int emptyViewId = a.getResourceId(R.styleable.PullListFragment_empty_view, -1);
+            if (emptyViewId != -1) {
+                setEmptyView(emptyViewId);
+            } else {
+                final String emptyText = a.getString(R.styleable.PullListFragment_empty_text);
+                if (emptyText != null) {
+                    setEmptyText(emptyText);
+                }
+            }
+
             a.recycle();
         }
     }

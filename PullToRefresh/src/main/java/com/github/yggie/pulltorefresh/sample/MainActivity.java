@@ -27,8 +27,6 @@ public class MainActivity extends FragmentActivity {
         final PullListFragment pullListFragment = (PullListFragment)getSupportFragmentManager()
                 .findFragmentById(R.id.pull_fragment);
 
-        pullListFragment.setEmptyText("Wait for it...");
-
         final Handler handler = new Handler();
         handler.postDelayed(new Runnable() {
             @Override

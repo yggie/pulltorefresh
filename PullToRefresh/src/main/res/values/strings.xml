@@ -7,5 +7,6 @@
     <string name="release_to_refresh">Let go</string>
     <string name="refreshing">Getting fresh</string>
     <string name="complete">Done</string>
+    <string name="wait_for_it">Wait for it...</string>
 
 </resources>

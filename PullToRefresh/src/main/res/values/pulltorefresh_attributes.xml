@@ -25,5 +25,7 @@
         <attr name="bottom_pullThresholdText" format="string"/>
         <attr name="bottom_refreshingText" format="string"/>
         <attr name="bottom_refreshCompleteText" format="string"/>
+        <attr name="empty_text" format="string"/>
+        <attr name="empty_view" format="reference"/>
     </declare-styleable>
 </resources>
