@@ -1,4 +1,6 @@
+
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:pulltorefresh="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -10,9 +12,10 @@
     tools:context=".MainActivity" >
 
     <fragment
-        android:name="com.github.yggie.pulltorefresh.sample.SamplePullListFragment"
+        android:name="com.github.yggie.pulltorefresh.PullListFragment"
         android:id="@+id/pull_fragment"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        pulltorefresh:list_background="#fbf"/>
 
 </RelativeLayout>

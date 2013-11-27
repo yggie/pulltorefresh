@@ -25,12 +25,15 @@
 
 package com.github.yggie.pulltorefresh;
 
+import android.app.Activity;
 import android.content.Context;
+import android.content.res.TypedArray;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.v4.app.Fragment;
+import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -47,11 +50,21 @@ import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
+import java.util.LinkedList;
+
 public class PullListFragment extends Fragment {
 
-    /** callback states */
-    public static final int TOP     = 0;
-    public static final int BOTTOM  = 1;
+    /** log identifier */
+    public static final String TAG = PullListFragment.class.getSimpleName();
+
+    /** bundle argument keys for xml attributes */
+    private static final String KEY_HAS_ATTRS       = "pulltorefresh_hasattrs";
+    private static final String KEY_BACKGROUND      = "pulltorefresh_background";
+    private static final String KEY_PADDING         = "pulltorefresh_padding";
+    private static final String KEY_PADDING_TOP     = "pulltorefresh_paddingtop";
+    private static final String KEY_PADDING_BOTTOM  = "pulltorefresh_paddingbottom";
+    private static final String KEY_PADDING_RIGHT   = "pulltorefresh_paddingright";
+    private static final String KEY_PADDING_LEFT    = "pulltorefresh_paddingleft";
 
     /** possible scrolling states */
     public enum ScrollState {
@@ -67,9 +80,6 @@ public class PullListFragment extends Fragment {
         PULL_BOTTOM_THRESHOLD_RELEASED,
         PULL_BOTTOM_WAITING
     }
-
-    /** log identifier */
-    private static final String TAG = PullListFragment.class.getSimpleName();
 
     /** default view managers */
     private DefaultPulledView topManager;
@@ -90,8 +100,42 @@ public class PullListFragment extends Fragment {
     /** the accumulated offset for the views */
     private int accumulatedOffset = 0;
 
+    /** the default listener, sets a default time for refresh to complete */
+    private PullCallbacksListener listener = new PullCallbacksListener() {
+        @Override
+        public void onPullStarted(ScrollState previousState, boolean isTop) {
+
+        }
+
+        @Override
+        public void onPullThreshold(ScrollState previousState, boolean isTop) {
+
+        }
+
+        @Override
+        public void onRefreshRequest(final OnRequestCompleteListener listener,
+                                     ScrollState previousState, boolean isTop) {
+            handler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    listener.onRequestComplete();
+                }
+            }, 1000);
+        }
+
+        @Override
+        public void onRequestComplete(boolean isTop) {
+
+        }
+
+        @Override
+        public void onPullEnd(ScrollState previousState, boolean isTop) {
+
+        }
+    };
+
     /**
-     * Creates all the views programmatically
+     * Called to do initial creation of the fragment. Creates all the Views in code
      *
      * @param inflater The LayoutInflater
      * @param container The parent container
@@ -102,6 +146,9 @@ public class PullListFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         final Context context = getActivity();
+
+        // default listener for the pull actions
+        scroller.addListener(listener);
 
         // setup the list view
         listView = new CustomListView(this);
@@ -141,6 +188,7 @@ public class PullListFragment extends Fragment {
         bottomManager = new DefaultPulledView(this, false);
         bottomManager.setBackgroundColor(Color.MAGENTA); // for debugging
         bottomFrameLayout.addView(bottomManager);
+        scroller.addListener(bottomManager);
         bottomPulledView = bottomFrameLayout;
 
         layout = new PullToRefreshLayout(this);
@@ -148,11 +196,125 @@ public class PullListFragment extends Fragment {
         layout.addView(bottomPulledView);
         layout.addView(listView);
 
+        // parse the XML attributes
+        Bundle args = getArguments();
+        if (args != null && args.getBoolean(KEY_HAS_ATTRS, false)) {
+            parseXmlAttributes(args);
+        }
+
         return layout;
     }
 
     /**
-     * Contains initialization functions which require the views to be ready
+     * Parses the xml attributes sent through the Bundle object
+     *
+     * @param args The bundle object containing the xml attributes
+     */
+
+    private void parseXmlAttributes(final Bundle args) {
+        if (args != null) {
+            // parse and set background color
+            final int backgroundColor = args.getInt(KEY_BACKGROUND, 0);
+            if (backgroundColor != 0) {
+                listView.setBackgroundColor(backgroundColor);
+                listView.setCacheColorHint(backgroundColor);
+            }
+
+            // parse and set padding
+            int paddingTop = listView.getPaddingTop();
+            int paddingBottom = listView.getPaddingBottom();
+            int paddingLeft = listView.getPaddingLeft();
+            int paddingRight = listView.getPaddingRight();
+
+            final int padding = args.getInt(KEY_PADDING, -1);
+            if (padding != -1) {
+                paddingTop = padding;
+                paddingBottom = padding;
+                paddingLeft = padding;
+                paddingRight = padding;
+            }
+
+            paddingTop = args.getInt(KEY_PADDING_TOP, paddingTop);
+            paddingBottom = args.getInt(KEY_PADDING_BOTTOM, paddingBottom);
+            paddingLeft = args.getInt(KEY_PADDING_LEFT, paddingLeft);
+            paddingRight = args.getInt(KEY_PADDING_RIGHT, paddingRight);
+
+            listView.setPadding(paddingLeft, paddingTop, paddingRight, paddingBottom);
+        }
+    }
+
+    /**
+     * Called when a fragment is being created as part of a view layout inflation, typically from
+     * setting the content view of an activity
+     *
+     * @param activity The Activity that is inflating this fragment
+     * @param attrs The attributes at the tag where the fragment is being created
+     * @param savedInstanceState The saved fragment state, if any
+     */
+
+    @Override
+    public void onInflate(Activity activity, AttributeSet attrs, Bundle savedInstanceState) {
+        super.onInflate(activity, attrs, savedInstanceState);
+
+        TypedArray a = activity.obtainStyledAttributes(attrs, R.styleable.PullListFragment);
+
+        if (a != null) {
+            // since onInflate is called before onAttach, we can still use the fragment arguments
+            Bundle args = getArguments();
+            if (args == null) {
+                args = new Bundle();
+            }
+
+            final int beforeSize = args.size();
+
+            // parse list background color attribute
+            final int backgroundColor = a.getColor(R.styleable.PullListFragment_list_background, 0);
+            if (backgroundColor != 0) {
+                args.putInt(KEY_BACKGROUND, backgroundColor);
+            }
+
+            // parse list padding attribute
+            final int padding = a.getDimensionPixelSize(R.styleable.PullListFragment_list_padding, -1);
+            if (padding != -1) {
+                args.putInt(KEY_PADDING, padding);
+            }
+
+            // parse list top padding attribute
+            final int paddingTop = a.getDimensionPixelSize(R.styleable.PullListFragment_list_paddingTop, -1);
+            if (paddingTop != -1) {
+                args.putInt(KEY_PADDING_TOP, paddingTop);
+            }
+
+            // parse list bottom padding attribute
+            final int paddingBottom = a.getDimensionPixelSize(R.styleable.PullListFragment_list_paddingBottom, -1);
+            if (paddingBottom != -1) {
+                args.putInt(KEY_PADDING_BOTTOM, paddingBottom);
+            }
+
+            // parse list left padding attribute
+            final int paddingLeft = a.getDimensionPixelSize(R.styleable.PullListFragment_list_paddingLeft, -1);
+            if (paddingLeft != -1) {
+                args.putInt(KEY_PADDING_LEFT, paddingLeft);
+            }
+
+            // parse list right padding attribute
+            final int paddingRight = a.getDimensionPixelSize(R.styleable.PullListFragment_list_paddingRight, -1);
+            if (paddingRight != -1) {
+                args.putInt(KEY_PADDING_RIGHT, paddingRight);
+            }
+
+            // finally deal with the cleanup
+            final boolean hasAttrs = !(beforeSize == args.size());
+            args.putBoolean(KEY_HAS_ATTRS, hasAttrs);
+            setArguments(args);
+            a.recycle();
+        }
+    }
+
+    /**
+     * Called immediately after onCreateView has returned, but before any saved state has been
+     * restored in to the View. Contains initialization functions which require the views to be
+     * ready
      *
      * @param view The root view of the fragment
      * @param savedInstanceState The saved scrollState
@@ -167,7 +329,22 @@ public class PullListFragment extends Fragment {
         listView.setOnScrollListener(scroller);
     }
 
+    /**
+     * Set the pull callbacks listener, the listener must correctly implement the
+     * onRefreshRequestComplete method
+     *
+     * @param newListener The new listener
+     */
 
+    public void setListener(PullCallbacksListener newListener) {
+        if (listener != null) {
+            scroller.removeListener(listener);
+        }
+        if (newListener != null) {
+            scroller.addListener(newListener);
+        }
+        listener = newListener;
+    }
 
     /**
      * A convenient method to set the layout offset
@@ -186,143 +363,6 @@ public class PullListFragment extends Fragment {
 
     private void undoPullOffset() {
         setPullOffset(-accumulatedOffset);
-    }
-
-    /**
-     * Called when the pull action starts.
-     *
-     * The default behaviour simply updates the text in the default pulled views. When overriding
-     * this method, call the superclass method only if you intend to continue using the default
-     * pulled views.
-     *
-     * @param dir Can be either TOP or BOTTOM
-     * @param previousState The previous scroll state
-     */
-
-    protected void onPullStart(final int dir, final ScrollState previousState) {
-        switch (dir) {
-            case TOP:
-                if (topManager != null) topManager.onPullStart();
-                break;
-
-            case BOTTOM:
-                if (bottomManager != null) bottomManager.onPullStart();
-                break;
-
-            default:
-                Log.wtf(TAG, "[.onPullStart] Illegal scrollState: " + dir);
-                break;
-        }
-    }
-
-    /**
-     * Called when the pull threshold has been exceeded
-     *
-     * The default behaviour simply updates the text in the default pulled views. When overriding
-     * this method, call the superclass method only if you intend to continue using the default
-     * pulled views.
-     *
-     * @param dir Can be either TOP or BOTTOM
-     * @param previousState The previous scroll state
-     */
-
-    protected void onPullThreshold(final int dir, final ScrollState previousState) {
-        switch (dir) {
-            case TOP:
-                if (topManager != null) topManager.onPullThreshold();
-                break;
-
-            case BOTTOM:
-                if (bottomManager != null) bottomManager.onPullThreshold();
-                break;
-
-            default:
-                Log.wtf(TAG, "[.onPullThreshold] Illegal scrollState: " + dir);
-                break;
-        }
-    }
-
-    /**
-     * Called when a refresh request is sent due to the pull action.
-     *
-     * The default behaviour simply updates the text in the default pulled views. When overriding
-     * this method, call the superclass method only if you intend to continue using the default
-     * pulled views.
-     *
-     * @param listener Call the onRequestComplete method on this listener to notify that the request
-     *                 has been completed
-     * @param dir Can be either TOP or BOTTOM
-     * @param previousState The previous scroll state
-     */
-
-    protected void onRefreshRequest(final OnRequestCompleteListener listener, final int dir,
-                                    final ScrollState previousState) {
-        switch (dir) {
-            case TOP:
-                if (topManager != null) topManager.onRefreshRequest();
-                break;
-
-            case BOTTOM:
-                if (bottomManager != null) bottomManager.onRefreshRequest();
-                break;
-
-            default:
-                Log.wtf(TAG, "[.onRefreshRequest] Illegal scrollState: " + dir);
-                break;
-        }
-    }
-
-    /**
-     * Called when the refresh request has been completed.
-     *
-     * The default behaviour simply updates the text in the default pulled views. When overriding
-     * this method, call the superclass method only if you intend to continue using the default
-     * pulled views.
-     *
-     * @param dir Can be either TOP or BOTTOM
-     */
-
-    protected void onRefreshRequestComplete(final int dir) {
-        switch (dir) {
-            case TOP:
-                if (topManager != null) topManager.onRefreshRequestComplete();
-                break;
-
-            case BOTTOM:
-                if (bottomManager != null) bottomManager.onRefreshRequestComplete();
-                break;
-
-            default:
-                Log.wtf(TAG, "[.onRefreshRequestComplete] Illegal scrollState: " + dir);
-                break;
-        }
-    }
-
-    /**
-     * Called when the pull action ends.
-     *
-     * The default behaviour simply updates the text in the default pulled views. When overriding
-     * this method, call the superclass method only if you intend to continue using the default
-     * pulled views.
-     *
-     * @param dir Can be either TOP or BOTTOM
-     * @param previousState The previous scroll state
-     */
-
-    protected void onPullEnd(final int dir, final ScrollState previousState) {
-        switch (dir) {
-            case TOP:
-                if (topManager != null) topManager.onPullEnd();
-                break;
-
-            case BOTTOM:
-                if (bottomManager != null) bottomManager.onPullEnd();
-                break;
-
-            default:
-                Log.wtf(TAG, "[.onPullEnd] Illegal scrollState: " + dir);
-                break;
-        }
     }
 
     /**
@@ -404,6 +444,7 @@ public class PullListFragment extends Fragment {
 
     public void setTopPulledView(int resId) {
         if (topManager != null) {
+            scroller.removeListener(topManager);
             topManager = null;
         }
         topPulledView.removeAllViews();
@@ -418,6 +459,7 @@ public class PullListFragment extends Fragment {
 
     public void setTopPulledView(View view) {
         if (topManager != null) {
+            scroller.removeListener(topManager);
             topManager = null;
         }
         if (view != null) {
@@ -446,6 +488,7 @@ public class PullListFragment extends Fragment {
 
     public void setBottomPulledView(int resId) {
         if (bottomManager != null) {
+            scroller.removeListener(bottomManager);
             bottomManager = null;
         }
         bottomPulledView.removeAllViews();
@@ -460,6 +503,7 @@ public class PullListFragment extends Fragment {
 
     public void setBottomPulledView(View view) {
         if (bottomManager != null) {
+            scroller.removeListener(bottomManager);
             bottomManager = null;
         }
         if (view != null) {
@@ -489,6 +533,15 @@ public class PullListFragment extends Fragment {
 
     public static interface OnRequestCompleteListener {
         public void onRequestComplete();
+    }
+
+    public static interface PullCallbacksListener {
+        public void onPullStarted(ScrollState previousState, boolean isTop);
+        public void onPullThreshold(ScrollState previousState, boolean isTop);
+        public void onRefreshRequest(OnRequestCompleteListener listener, ScrollState previousState,
+                                     boolean isTop);
+        public void onRequestComplete(boolean isTop);
+        public void onPullEnd(ScrollState previousState, boolean isTop);
     }
 
     /**
@@ -552,7 +605,8 @@ public class PullListFragment extends Fragment {
      */
 
     private static class PullEffectScroller implements Runnable,
-            PullListFragment.OnRequestCompleteListener, AbsListView.OnScrollListener {
+            PullListFragment.OnRequestCompleteListener, AbsListView.OnScrollListener,
+            PullCallbacksListener {
 
         private static final String TAG = PullEffectScroller.class.getSimpleName();
 
@@ -580,31 +634,24 @@ public class PullListFragment extends Fragment {
         private int bottomContentSize;
         private float bottomMaxLength;
 
+        /** The parent fragment */
         private final PullListFragment parent;
+
+        /** The pull effect callbacks listeners */
+        private final LinkedList<PullCallbacksListener> listeners;
 
         /** scrolling scrollState */
         private ScrollState scrollState;
 
-        @Override
-        public void onScrollStateChanged(AbsListView absListView, int scrollState) {
-            // do nothing
-        }
-
-        @Override
-        public void onScroll(AbsListView absListView, int firstVisibleItem, int visibleItemCount,
-                             int totalItemCount) {
-            allowTopPull = (firstVisibleItem == 0);
-            allowBottomPull = (firstVisibleItem + visibleItemCount) == totalItemCount;
-        }
-
         /**
-         * Constructor
+         * Default constructor initializes the class and registers listeners
          *
          * @param parent The parent PullListFragment
          */
 
         public PullEffectScroller(final PullListFragment parent) {
             this.parent = parent;
+            listeners = new LinkedList<PullCallbacksListener>();
             totalOffset = 0.0f;
             previousIntOffset = 0;
             totalTravel = 0.0f;
@@ -632,6 +679,40 @@ public class PullListFragment extends Fragment {
         private void initialize() {
             // scrolling scrollState
             setScrollState(ScrollState.NORMAL);
+        }
+
+        /**
+         * Adds the specified listener to the list of listeners
+         *
+         * @param listener The listener to add
+         */
+
+        public void addListener(PullCallbacksListener listener) {
+            if (!listeners.contains(listener)) {
+                listeners.add(listener);
+            }
+        }
+
+        /**
+         * Removes the listener from the list of listeners
+         *
+         * @param listener The listener to remove
+         */
+
+        public void removeListener(PullCallbacksListener listener) {
+            listeners.remove(listener);
+        }
+
+        @Override
+        public void onScrollStateChanged(AbsListView absListView, int scrollState) {
+            // do nothing
+        }
+
+        @Override
+        public void onScroll(AbsListView absListView, int firstVisibleItem, int visibleItemCount,
+                             int totalItemCount) {
+            allowTopPull = (firstVisibleItem == 0);
+            allowBottomPull = (firstVisibleItem + visibleItemCount) == totalItemCount;
         }
 
         /**
@@ -693,6 +774,79 @@ public class PullListFragment extends Fragment {
         }
 
         /**
+         * Called when the pull action begins. Simply propagates the call to all listeners.
+         *
+         * @param previousState The previous scroll state
+         * @param isTop If true, the pull is happening at the top of the list
+         */
+
+        @Override
+        public void onPullStarted(ScrollState previousState, boolean isTop) {
+            for (PullCallbacksListener l : listeners) {
+                l.onPullStarted(previousState, isTop);
+            }
+        }
+
+        /**
+         * Called when the pull threshold has been reached. Simply propagates the call to all
+         * listeners.
+         *
+         * @param previousState The previous scroll state
+         * @param isTop If true, the pull is happening at the top of the list
+         */
+
+        @Override
+        public void onPullThreshold(ScrollState previousState, boolean isTop) {
+            for (PullCallbacksListener l : listeners) {
+                l.onPullThreshold(previousState, isTop);
+            }
+        }
+
+        /**
+         * Called when a refresh request is made, after a pull and release action. Simply propagates
+         * the call to all listeners
+         *
+         * @param listener The request response listener
+         * @param previousState The previous scroll state
+         * @param isTop If true, the pull is happening at the top of the list
+         */
+
+        @Override
+        public void onRefreshRequest(OnRequestCompleteListener listener, ScrollState previousState, boolean isTop) {
+            for (PullCallbacksListener l : listeners) {
+                l.onRefreshRequest(listener, previousState, isTop);
+            }
+        }
+
+        /**
+         * Called when a response to the refresh request has been received. Simply propagates the
+         * call to all listeners
+         *
+         * @param isTop If true, the pull is happening at the top of the list
+         */
+
+        @Override
+        public void onRequestComplete(boolean isTop) {
+            for (PullCallbacksListener l : listeners) {
+                l.onRequestComplete(isTop);
+            }
+        }
+
+        /**
+         * Called when the pull action stops. Simply propagates the call to all listeners
+         *
+         * @param previousState The previous scroll state
+         * @param isTop If true, the pull is happening at the top of the list
+         */
+
+        @Override
+        public void onPullEnd(ScrollState previousState, boolean isTop) {
+            for (PullCallbacksListener l : listeners) {
+                l.onPullEnd(previousState, isTop);
+            }
+        }
+
+        /**
          * Recomputes the scroll distance travelled for internal calculations
          */
 
@@ -736,13 +890,13 @@ public class PullListFragment extends Fragment {
                         case PULL_TOP:
                         case PULL_TOP_THRESHOLD:
                         case PULL_TOP_RELEASED:
-                            parent.onPullEnd(PullListFragment.TOP, oldScrollState);
+                            onPullEnd(oldScrollState, true);
                             break;
 
                         case PULL_BOTTOM:
                         case PULL_BOTTOM_THRESHOLD:
                         case PULL_BOTTOM_RELEASED:
-                            parent.onPullEnd(PullListFragment.BOTTOM, oldScrollState);
+                            onPullEnd(oldScrollState, false);
                             break;
 
                         default:
@@ -759,20 +913,20 @@ public class PullListFragment extends Fragment {
 
                 case PULL_TOP:
                     if (oldScrollState != ScrollState.PULL_TOP_THRESHOLD) {
-                        parent.onPullStart(PullListFragment.TOP, oldScrollState);
+                        onPullStarted(oldScrollState, true);
                     }
                     break;
 
                 case PULL_TOP_THRESHOLD:
-                    parent.onPullThreshold(PullListFragment.TOP, oldScrollState);
+                    onPullThreshold(oldScrollState, true);
                     break;
 
                 case PULL_BOTTOM:
-                    parent.onPullStart(PullListFragment.BOTTOM, oldScrollState);
+                    onPullStarted(oldScrollState, false);
                     break;
 
                 case PULL_BOTTOM_THRESHOLD:
-                    parent.onPullThreshold(PullListFragment.BOTTOM, oldScrollState);
+                    onPullThreshold(oldScrollState, false);
                     break;
 
                 case PULL_TOP_RELEASED:
@@ -788,7 +942,7 @@ public class PullListFragment extends Fragment {
                     previousIntOffset = topContentSize;
                     totalOffset = topContentSize;
                     recomputeTravel();
-                    parent.onRefreshRequest(this, PullListFragment.TOP, oldScrollState);
+                    onRefreshRequest(this, oldScrollState, true);
                     break;
 
                 case PULL_BOTTOM_WAITING:
@@ -797,7 +951,7 @@ public class PullListFragment extends Fragment {
                     previousIntOffset = -bottomContentSize;
                     totalOffset = -bottomContentSize;
                     recomputeTravel();
-                    parent.onRefreshRequest(this, PullListFragment.BOTTOM, oldScrollState);
+                    onRefreshRequest(this, oldScrollState, false);
                     break;
 
                 default:
@@ -815,12 +969,12 @@ public class PullListFragment extends Fragment {
         public void onRequestComplete() {
             switch (scrollState) {
                 case PULL_TOP_WAITING:
-                    parent.onRefreshRequestComplete(PullListFragment.TOP);
+                    onRequestComplete(true);
                     setScrollState(ScrollState.PULL_TOP_RELEASED);
                     break;
 
                 case PULL_BOTTOM_WAITING:
-                    parent.onRefreshRequestComplete(PullListFragment.BOTTOM);
+                    onRequestComplete(false);
                     setScrollState(ScrollState.PULL_BOTTOM_RELEASED);
                     break;
 
@@ -1056,7 +1210,7 @@ public class PullListFragment extends Fragment {
      * A convenient class to manage default pulled view behaviour
      */
 
-    public static class DefaultPulledView extends LinearLayout {
+    public static class DefaultPulledView extends LinearLayout implements PullCallbacksListener {
 
         private TextView statusText;
         private ProgressBar progressBar;
@@ -1143,31 +1297,36 @@ public class PullListFragment extends Fragment {
             completeText = text;
         }
 
-        public void onRefreshRequestComplete() {
-            statusText.setText(completeText);
-            progressBar.setVisibility(INVISIBLE);
+        @Override
+        public void onPullStarted(ScrollState previousState, boolean isTop) {
+            statusText.setText(startPullText);
             invalidate();
         }
 
-        public void onPullEnd() {
-            // do nothing
+        @Override
+        public void onPullThreshold(ScrollState previousState, boolean isTop) {
+            statusText.setText(thresholdPassedText);
+            invalidate();
         }
 
-        public void onRefreshRequest() {
+        @Override
+        public void onRefreshRequest(OnRequestCompleteListener listener, ScrollState previousState, boolean isTop) {
             statusText.setText(refreshingText);
             progressBar.setVisibility(VISIBLE);
 
             invalidate();
         }
 
-        public void onPullStart() {
-            statusText.setText(startPullText);
+        @Override
+        public void onRequestComplete(boolean isTop) {
+            statusText.setText(completeText);
+            progressBar.setVisibility(INVISIBLE);
             invalidate();
         }
 
-        public void onPullThreshold() {
-            statusText.setText(thresholdPassedText);
-            invalidate();
+        @Override
+        public void onPullEnd(ScrollState previousState, boolean isTop) {
+
         }
     }
 }
