@@ -28,6 +28,7 @@ package com.github.yggie.pulltorefresh;
 import android.app.Activity;
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.database.DataSetObserver;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -36,11 +37,13 @@ import android.support.v4.app.Fragment;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.AnimationUtils;
 import android.widget.AbsListView;
 import android.widget.AdapterView;
 import android.widget.FrameLayout;
@@ -79,6 +82,7 @@ public class PullListFragment extends Fragment {
     private DefaultPulledView bottomManager;
 
     /** the contained views */
+    private View emptyView;
     private PullToRefreshLayout layout;
     private FrameLayout topPulledView;
     private ListView listView;
@@ -93,8 +97,13 @@ public class PullListFragment extends Fragment {
     /** the accumulated offset for the views */
     private int accumulatedOffset = 0;
 
+    /** if true, the list is visible */
+    private boolean listShown = false;
+
     /** XML attributes to parse */
     private AttributeSet attrs;
+
+    private final DataSetObserver observer = new CustomDataSetObserver();
 
     /**
      * Called to do initial creation of the fragment. Creates all the Views in code
@@ -111,7 +120,7 @@ public class PullListFragment extends Fragment {
 
         // setup the list view
         listView = new CustomListView(this);
-        RelativeLayout.LayoutParams listViewParams = new RelativeLayout.LayoutParams(
+        final RelativeLayout.LayoutParams listViewParams = new RelativeLayout.LayoutParams(
                 RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT);
         listViewParams.addRule(RelativeLayout.ALIGN_PARENT_TOP, RelativeLayout.TRUE);
         listViewParams.addRule(RelativeLayout.ALIGN_PARENT_LEFT, RelativeLayout.TRUE);
@@ -119,16 +128,24 @@ public class PullListFragment extends Fragment {
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> adapterView, View view, int position, long id) {
-                onListItemClick((ListView)adapterView, view, position, id);
+                onListItemClick((ListView) adapterView, view, position, id);
             }
         });
 
+        // setup the empty view
+        final TextView textView = new TextView(context);
+        textView.setLayoutParams(listViewParams);
+        textView.setGravity(Gravity.CENTER);
+        textView.setText("Nothing to show");
+        textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18.0f);
+        emptyView = textView;
+
         // setup top pulled view
-        RelativeLayout.LayoutParams topViewParams = new RelativeLayout.LayoutParams(
+        final RelativeLayout.LayoutParams topViewParams = new RelativeLayout.LayoutParams(
                 RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
         topViewParams.addRule(RelativeLayout.ALIGN_PARENT_TOP, RelativeLayout.TRUE);
         topViewParams.addRule(RelativeLayout.ALIGN_PARENT_LEFT, RelativeLayout.TRUE);
-        FrameLayout topFrameLayout = new FrameLayout(context);
+        final FrameLayout topFrameLayout = new FrameLayout(context);
         topFrameLayout.setLayoutParams(topViewParams);
         // setup the default child of the FrameLayout
         topManager = new DefaultPulledView(this, true);
@@ -137,11 +154,11 @@ public class PullListFragment extends Fragment {
         topPulledView = topFrameLayout;
 
         // setup bottom pulled view
-        RelativeLayout.LayoutParams bottomViewParams = new RelativeLayout.LayoutParams(
+        final RelativeLayout.LayoutParams bottomViewParams = new RelativeLayout.LayoutParams(
                 RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
         bottomViewParams.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM, RelativeLayout.TRUE);
         bottomViewParams.addRule(RelativeLayout.ALIGN_PARENT_LEFT, RelativeLayout.TRUE);
-        FrameLayout bottomFrameLayout = new FrameLayout(context);
+        final FrameLayout bottomFrameLayout = new FrameLayout(context);
         bottomFrameLayout.setLayoutParams(bottomViewParams);
         // setup the default child in the FrameLayout
         bottomManager = new DefaultPulledView(this, false);
@@ -153,12 +170,19 @@ public class PullListFragment extends Fragment {
         layout.addView(topPulledView);
         layout.addView(bottomPulledView);
         layout.addView(listView);
+        layout.addView(emptyView);
+
+        listShown = false;
+        listView.setVisibility(View.GONE);
+        emptyView.setVisibility(View.VISIBLE);
 
         // applies the XML attributes, if exists
         if (attrs != null) {
             final TypedArray a = getActivity().obtainStyledAttributes(attrs, R.styleable.PullListFragment);
-            applyXmlAttributes(a);
-            a.recycle();
+            if (a != null) {
+                applyXmlAttributes(a);
+                a.recycle();
+            }
             attrs = null;
         }
 
@@ -319,6 +343,23 @@ public class PullListFragment extends Fragment {
     }
 
     /**
+     * Called when the view previously created by
+     * {@link #onCreateView(android.view.LayoutInflater, android.view.ViewGroup, android.os.Bundle)}
+     * has been detached from the fragment
+     */
+
+    @Override
+    public void onDestroyView() {
+        bottomManager = null;
+        topManager = null;
+        listView = null;
+        layout = null;
+        topPulledView = null;
+        bottomPulledView = null;
+        super.onDestroyView();
+    }
+
+    /**
      * Set the layout offset and post invalidate for the layout
      *
      * @param offset The offset in pixels
@@ -351,6 +392,36 @@ public class PullListFragment extends Fragment {
     }
 
     /**
+     * Get the cursor row ID of the currently selected item
+     *
+     * @return The ID of the selected item
+     */
+
+    public long getSelectedItemId() {
+        return listView.getSelectedItemId();
+    }
+
+    /**
+     * Get the position of the currently selected list item
+     *
+     * @return The position of the currently selected list item
+     */
+
+    public int getSelectedItemPosition() {
+        return listView.getSelectedItemPosition();
+    }
+
+    /**
+     * Set the currently selected list item to the specified position with the adapter's data
+     *
+     * @param position The position on the list to move to
+     */
+
+    public void setSelection(int position) {
+        listView.setSelection(position);
+    }
+
+    /**
      * Returns the contained ListView
      *
      * @return The ListView contained in the layout
@@ -377,7 +448,117 @@ public class PullListFragment extends Fragment {
      */
 
     public void setListAdapter(ListAdapter adapter) {
+        if (listView.getAdapter() != null) {
+            listView.getAdapter().unregisterDataSetObserver(observer);
+        }
         listView.setAdapter(adapter);
+        adapter.registerDataSetObserver(observer);
+        setListShown(true);
+    }
+
+    /**
+     * Set the text of the default view shown when the list is empty
+     *
+     * @param resourceId The resource ID of the text
+     */
+
+    public void setEmptyText(int resourceId) {
+        setEmptyText(getActivity().getString(resourceId));
+    }
+
+    /**
+     * Set the text of the default view shown when the list is empty
+     *
+     * @param text The text to show
+     */
+
+    public void setEmptyText(CharSequence text) {
+        if (emptyView instanceof TextView) {
+            ((TextView)emptyView).setText(text);
+        } else {
+            throw new IllegalStateException("Cannot set text when a custom view is in use");
+        }
+    }
+
+    /**
+     * Set the empty view to the view defined by the given resource ID
+     *
+     * @param resourceId The resource ID of the view
+     */
+
+    public void setEmptyView(int resourceId) {
+        layout.removeView(emptyView);
+        LayoutInflater.from(getActivity()).inflate(resourceId, layout);
+        // assume the view is the last child
+        emptyView = layout.getChildAt(layout.getChildCount() - 1);
+    }
+
+    /**
+     * Set the empty view to the given view
+     *
+     * @param view The new view shown when the list is empty
+     */
+
+    public void setEmptyView(View view) {
+        layout.removeView(emptyView);
+        emptyView = view;
+        layout.addView(view);
+    }
+
+    /**
+     * Returns the view shown when the list is empty
+     *
+     * @return The view shown when the list is empty
+     */
+
+    public View getEmptyView() {
+        return emptyView;
+    }
+
+    /**
+     * Set the list to be shown
+     *
+     * @param shown If true, the list will be shown
+     */
+
+    public void setListShown(boolean shown) {
+        setListShown(shown, true);
+    }
+
+    /**
+     * Set the list to be shown
+     *
+     * @param shown If true, the list will be shown
+     * @param animate If true, the change will be animated using a simple fade animation
+     */
+
+    public void setListShown(boolean shown, boolean animate) {
+        if (listShown == shown) {
+            return;
+        }
+        listShown = shown;
+        if (shown) {
+            if (animate) {
+                listView.startAnimation(AnimationUtils.loadAnimation(getActivity(),
+                        android.R.anim.fade_in));
+                emptyView.startAnimation(AnimationUtils.loadAnimation(getActivity(),
+                        android.R.anim.fade_out));
+            } else {
+                listView.clearAnimation();
+                emptyView.clearAnimation();
+            }
+            emptyView.setVisibility(View.GONE);
+            listView.setVisibility(View.VISIBLE);
+        } else {
+            if (animate) {
+                listView.startAnimation(AnimationUtils.loadAnimation(getActivity(),
+                        android.R.anim.fade_out));
+                emptyView.startAnimation(AnimationUtils.loadAnimation(getActivity(),
+                        android.R.anim.fade_in));
+            }
+            emptyView.setVisibility(View.VISIBLE);
+            listView.setVisibility(View.GONE);
+        }
     }
 
     /**
@@ -525,7 +706,7 @@ public class PullListFragment extends Fragment {
      * @param isTop If true, the top view is begin pulled
      */
 
-    public void onPullStarted(ScrollState previousState, boolean isTop) {
+    protected void onPullStarted(ScrollState previousState, boolean isTop) {
         if (isTop) {
             if (topManager != null) topManager.onPullStarted();
         } else if (bottomManager != null) {
@@ -542,7 +723,7 @@ public class PullListFragment extends Fragment {
      * @param isTop If true, the top view is begin pulled
      */
 
-    public void onPullThreshold(ScrollState previousState, boolean isTop) {
+    protected void onPullThreshold(ScrollState previousState, boolean isTop) {
         if (isTop) {
             if (topManager != null) topManager.onPullThreshold(previousState);
         } else if (bottomManager != null) {
@@ -561,7 +742,8 @@ public class PullListFragment extends Fragment {
      * @param isTop If true, the top view is begin pulled
      */
 
-    public void onRefreshRequest(OnRequestCompleteListener listener, ScrollState previousState, boolean isTop) {
+    protected void onRefreshRequest(OnRequestCompleteListener listener, ScrollState previousState,
+                                    boolean isTop) {
         if (isTop) {
             if (topManager != null) topManager.onRefreshRequest();
         } else if (bottomManager != null) {
@@ -577,7 +759,7 @@ public class PullListFragment extends Fragment {
      * @param isTop If true, the top view is begin pulled
      */
 
-    public void onRequestComplete(boolean isTop) {
+    protected void onRequestComplete(boolean isTop) {
         if (isTop) {
             if (topManager != null) topManager.onRequestComplete();
         } else if (bottomManager != null) {
@@ -594,7 +776,7 @@ public class PullListFragment extends Fragment {
      * @param isTop If true, the top view is begin pulled
      */
 
-    public void onPullEnd(ScrollState previousState, boolean isTop) {
+    protected void onPullEnd(ScrollState previousState, boolean isTop) {
         if (isTop) {
             if (topManager != null) topManager.onPullEnd();
         } else if (bottomManager != null) {
@@ -611,7 +793,7 @@ public class PullListFragment extends Fragment {
      * @param id The row ID of the View
      */
 
-    public void onListItemClick(ListView listView, View view, int position, long id) {
+    protected void onListItemClick(ListView listView, View view, int position, long id) {
         // do nothing
     }
 
@@ -621,6 +803,33 @@ public class PullListFragment extends Fragment {
 
     public static interface OnRequestCompleteListener {
         public void onRequestComplete();
+    }
+
+    /**
+     * A custom DataSetObserver which listens to changes in the list size
+     */
+
+    private class CustomDataSetObserver extends DataSetObserver {
+
+        /**
+         * Called when the dataset has changed
+         */
+
+        @Override
+        public void onChanged() {
+            if (listView.getAdapter() != null) {
+                setListShown(listView.getCount() != 0);
+            }
+        }
+
+        /**
+         * Called when the dataset is no longer valid
+         */
+
+        @Override
+        public void onInvalidated() {
+            setListShown(false);
+        }
     }
 
     /**

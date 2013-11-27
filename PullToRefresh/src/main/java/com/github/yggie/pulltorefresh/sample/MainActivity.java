@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Random;
 
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.v4.app.FragmentActivity;
 import android.view.Menu;
 import android.widget.BaseAdapter;
@@ -23,15 +24,23 @@ public class MainActivity extends FragmentActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        PullListFragment pullListFragment = (PullListFragment)getSupportFragmentManager()
+        final PullListFragment pullListFragment = (PullListFragment)getSupportFragmentManager()
                 .findFragmentById(R.id.pull_fragment);
 
-        // populate the ListView with random data
-        ListView listView = pullListFragment.getListView();
-        List<Map<String, String>> adapterList = defaultList();
-        BaseAdapter adapter = new SimpleAdapter(this, adapterList, R.layout.item, new String[] {"title", "content"},
-                new int[] {R.id.title, R.id.content});
-        listView.setAdapter(adapter);
+        pullListFragment.setEmptyText("Wait for it...");
+
+        final Handler handler = new Handler();
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                // populate the ListView with random data
+                final List<Map<String, String>> adapterList = defaultList();
+                final BaseAdapter adapter = new SimpleAdapter(MainActivity.this, adapterList,
+                        R.layout.item, new String[]{"title", "content"},
+                        new int[]{R.id.title, R.id.content});
+                pullListFragment.setListAdapter(adapter);
+            }
+        }, 3000);
     }
 
     @Override
