@@ -12,10 +12,11 @@
     tools:context=".MainActivity" >
 
     <fragment
-        android:name="com.github.yggie.pulltorefresh.PullListFragment"
+        android:name="com.github.yggie.pulltorefresh.sample.SampleFragment"
         android:id="@+id/pull_fragment"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        pulltorefresh:list_background="#fbf"/>
+        pulltorefresh:list_background="@color/pink"
+        pulltorefresh:bottom_mode="none"/>
 
 </RelativeLayout>

@@ -7,5 +7,15 @@
         <attr name="list_paddingBottom" format="dimension"/>
         <attr name="list_paddingLeft" format="dimension"/>
         <attr name="list_paddingRight" format="dimension"/>
+        <attr name="top_mode" format="enum">
+            <enum name="none" value="0"/>
+            <enum name="pull" value="1"/>
+        </attr>
+        <attr name="bottom_mode" format="enum">
+            <enum name="none" value="0"/>
+            <enum name="pull" value="1"/>
+        </attr>
+        <attr name="top_view" format="reference"/>
+        <attr name="bottom_view" format="reference"/>
     </declare-styleable>
 </resources>
