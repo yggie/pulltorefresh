@@ -38,12 +38,12 @@ public class SampleFragment extends PullListFragment {
      * Simply waits for a short period of time before responding
      *
      * @param listener The listener which will respond to the request completion
-     * @param previousState The previous scroll state
+     * @param previousState The previous pull state
      * @param isTop If true, the top view is begin pulled
      */
 
     @Override
-    public void onRefreshRequest(final OnRequestCompleteListener listener, ScrollState previousState, boolean isTop) {
+    public void onRefreshRequest(final OnRequestCompleteListener listener, PullState previousState, boolean isTop) {
         super.onRefreshRequest(listener, previousState, isTop);
 
         // simply waits 1 second before completing the request
