@@ -17,5 +17,13 @@
         </attr>
         <attr name="top_view" format="reference"/>
         <attr name="bottom_view" format="reference"/>
+        <attr name="top_pullStartedText" format="string"/>
+        <attr name="top_pullThresholdText" format="string"/>
+        <attr name="top_refreshingText" format="string"/>
+        <attr name="top_refreshCompleteText" format="string"/>
+        <attr name="bottom_pullStartedText" format="string"/>
+        <attr name="bottom_pullThresholdText" format="string"/>
+        <attr name="bottom_refreshingText" format="string"/>
+        <attr name="bottom_refreshCompleteText" format="string"/>
     </declare-styleable>
 </resources>

@@ -176,7 +176,7 @@ public class PullListFragment extends Fragment {
             /** apply the background color */
             final int backgroundColor = a.getColor(R.styleable.PullListFragment_list_background, 0);
             if (backgroundColor != 0) {
-                setBackgroundColor(backgroundColor);
+                setListViewBackgroundColor(backgroundColor);
             }
 
             /**
@@ -229,6 +229,54 @@ public class PullListFragment extends Fragment {
             final int bottomViewResId = a.getResourceId(R.styleable.PullListFragment_bottom_view, -1);
             if (bottomViewResId != -1) {
                 setBottomPulledView(bottomViewResId);
+            }
+
+            /**
+             * apply custom text to default views
+             */
+
+            if (topManager != null) {
+                final String pullStartedText = a.getString(R.styleable.PullListFragment_top_pullStartedText);
+                if (pullStartedText != null) {
+                    topManager.setPullStartedText(pullStartedText);
+                }
+
+                final String pullThresholdText = a.getString(R.styleable.PullListFragment_top_pullThresholdText);
+                if (pullThresholdText != null) {
+                    topManager.setPullThresholdText(pullThresholdText);
+                }
+
+                final String refreshingText = a.getString(R.styleable.PullListFragment_top_refreshingText);
+                if (refreshingText != null) {
+                    topManager.setRefreshingText(refreshingText);
+                }
+
+                final String refreshCompleteText = a.getString(R.styleable.PullListFragment_top_refreshCompleteText);
+                if (refreshCompleteText != null) {
+                    topManager.setRefreshCompleteText(refreshCompleteText);
+                }
+            }
+
+            if (bottomManager != null) {
+                final String pullStartedText = a.getString(R.styleable.PullListFragment_bottom_pullStartedText);
+                if (pullStartedText != null) {
+                    bottomManager.setPullStartedText(pullStartedText);
+                }
+
+                final String pullThresholdText = a.getString(R.styleable.PullListFragment_bottom_pullThresholdText);
+                if (pullThresholdText != null) {
+                    bottomManager.setPullThresholdText(pullThresholdText);
+                }
+
+                final String refreshingText = a.getString(R.styleable.PullListFragment_bottom_refreshingText);
+                if (refreshingText != null) {
+                    bottomManager.setRefreshingText(refreshingText);
+                }
+
+                final String refreshCompleteText = a.getString(R.styleable.PullListFragment_bottom_refreshCompleteText);
+                if (refreshCompleteText != null) {
+                    bottomManager.setRefreshCompleteText(refreshCompleteText);
+                }
             }
 
             a.recycle();
@@ -291,12 +339,13 @@ public class PullListFragment extends Fragment {
     }
 
     /**
-     * A convenient method to set the background color of the layout
+     * A convenient method to set the background color of the layout, which simply changes the color
+     * of the embedded ListView background and cache color hint
      *
-     * @param color
+     * @param color The new background color to set
      */
 
-    public void setBackgroundColor(int color) {
+    public void setListViewBackgroundColor(int color) {
         listView.setBackgroundColor(color);
         listView.setCacheColorHint(color);
     }
@@ -400,6 +449,16 @@ public class PullListFragment extends Fragment {
     }
 
     /**
+     * Returns the default top view
+     *
+     * @return The default top view, null if a custom view is in use
+     */
+
+    public DefaultPulledView getDefaultTopView() {
+        return topManager;
+    }
+
+    /**
      * Returns the bottom pulled view
      *
      * @return The bottom pulled view
@@ -445,6 +504,16 @@ public class PullListFragment extends Fragment {
             bottomManager = null;
         }
         bottomPulledView.removeAllViews();
+    }
+
+    /**
+     * Returns the default bottom view
+     *
+     * @return The default bottom view, null if a custom view is in use
+     */
+
+    public DefaultPulledView getDefaultBottomView() {
+        return bottomManager;
     }
 
     /**
@@ -1147,10 +1216,10 @@ public class PullListFragment extends Fragment {
 
         private final boolean isTop;
 
-        private String startPullText;
-        private String thresholdPassedText;
+        private String pullStartedText;
+        private String pullThresholdText;
         private String refreshingText;
-        private String completeText;
+        private String refreshCompleteText;
 
         public DefaultPulledView(PullListFragment parent, boolean isTop) {
             super(parent.getActivity());
@@ -1190,26 +1259,34 @@ public class PullListFragment extends Fragment {
             this.addView(progressBar);
             this.addView(statusText);
 
-            startPullText = "Pull to refresh";
-            thresholdPassedText = "Release to refresh";
+            pullStartedText = "Pull to refresh";
+            pullThresholdText = "Release to refresh";
             refreshingText = "Refreshing";
-            completeText = "Refresh complete";
+            refreshCompleteText = "Refresh complete";
         }
 
-        public void setStartPullText(int id) {
-            startPullText = getResources().getString(id);
+        public void setPullStartedText(int id) {
+            pullStartedText = getResources().getString(id);
         }
 
-        public void setStartPullText(String text) {
-            startPullText = text;
+        public void setPullStartedText(String text) {
+            pullStartedText = text;
         }
 
-        public void setThresholdPassedText(int id) {
-            thresholdPassedText = getResources().getString(id);
+        public String getPullStartedText() {
+            return pullStartedText;
         }
 
-        public void setThresholdPassedText(String text) {
-            thresholdPassedText = text;
+        public void setPullThresholdText(int id) {
+            pullThresholdText = getResources().getString(id);
+        }
+
+        public void setPullThresholdText(String text) {
+            pullThresholdText = text;
+        }
+
+        public String getPullThresholdText() {
+            return pullThresholdText;
         }
 
         public void setRefreshingText(int resId) {
@@ -1220,23 +1297,31 @@ public class PullListFragment extends Fragment {
             refreshingText = text;
         }
 
-        public void setCompleteText(int resId) {
-            completeText = getResources().getString(resId);
+        public String getRefreshingText() {
+            return refreshingText;
         }
 
-        public void setCompleteText(String text) {
-            completeText = text;
+        public void setRefreshCompleteText(int resId) {
+            refreshCompleteText = getResources().getString(resId);
+        }
+
+        public void setRefreshCompleteText(String text) {
+            refreshCompleteText = text;
+        }
+
+        public String getRefreshCompleteText() {
+            return refreshCompleteText;
         }
 
         public void onPullStarted() {
-            statusText.setText(startPullText);
+            statusText.setText(pullStartedText);
         }
 
         public void onPullThreshold(ScrollState previousState) {
             if (previousState != ScrollState.PULL_BOTTOM_THRESHOLD && previousState != ScrollState.PULL_TOP_THRESHOLD) {
-                statusText.setText(thresholdPassedText);
+                statusText.setText(pullThresholdText);
             } else {
-                statusText.setText(startPullText);
+                statusText.setText(pullStartedText);
             }
         }
 
@@ -1246,12 +1331,12 @@ public class PullListFragment extends Fragment {
         }
 
         public void onRequestComplete() {
-            statusText.setText(completeText);
+            statusText.setText(refreshCompleteText);
             progressBar.setVisibility(INVISIBLE);
         }
 
         public void onPullEnd() {
-
+            // do nothing
         }
     }
 }

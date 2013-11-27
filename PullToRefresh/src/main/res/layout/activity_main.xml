@@ -17,6 +17,10 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         pulltorefresh:list_background="@color/pink"
-        pulltorefresh:bottom_mode="none"/>
+        pulltorefresh:bottom_mode="none"
+        pulltorefresh:top_pullStartedText="@string/pull_to_refresh"
+        pulltorefresh:top_pullThresholdText="@string/release_to_refresh"
+        pulltorefresh:top_refreshingText="@string/refreshing"
+        pulltorefresh:top_refreshCompleteText="@string/complete"/>
 
 </RelativeLayout>
