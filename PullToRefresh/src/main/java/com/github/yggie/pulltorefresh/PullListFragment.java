@@ -744,9 +744,9 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
 
     protected void onPullThreshold(PullState previousState, boolean isTop) {
         if (isTop) {
-            if (topManager != null) topManager.onPullThreshold(previousState);
+            if (topManager != null) topManager.onPullThreshold(previousState == PullState.PULL_TOP);
         } else if (bottomManager != null) {
-            bottomManager.onPullThreshold(previousState);
+            bottomManager.onPullThreshold(previousState == PullState.PULL_BOTTOM);
         }
     }
 
@@ -870,7 +870,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
 
     public static interface PullStateListener {
         public void onPullStarted();
-        public void onPullThreshold(PullState previousState);
+        public void onPullThreshold(boolean aboveThreshold);
         public void onRefreshRequest();
         public void onRequestComplete();
         public void onPullEnd();
@@ -968,10 +968,11 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
      * A convenient class to manage default pulled view behaviour
      */
 
-    public static class DefaultPulledView extends LinearLayout implements PullStateListener {
+    public static class DefaultPulledView extends FrameLayout implements PullStateListener {
 
         private PullStateListener listener;
 
+        private final LinearLayout layout;
         private final TextView statusText;
         private View status;
 
@@ -988,19 +989,22 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
 
             final int recommendedSize = (int)(48.0f * logicalDensity + 0.5f);
             final int paddingLarge = (int)(32.0f * logicalDensity + 0.5f);
-            final int paddingMedium = (int)(16.0f * logicalDensity + 0.5f);
             final int paddingSmall = (int)(8.0f * logicalDensity + 0.5f);
             this.setLayoutParams(new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
             if (isTop) {
-                this.setPadding(paddingLarge, paddingLarge, paddingMedium, paddingSmall);
+                this.setPadding(0, paddingLarge, 0, 0);
             } else {
-                this.setPadding(paddingLarge, paddingSmall, paddingMedium, paddingLarge);
+                this.setPadding(0, 0, 0, paddingLarge);
             }
-            this.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
-            this.setOrientation(HORIZONTAL);
+
+            layout = new LinearLayout(context);
+            layout.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+            layout.setPadding(paddingLarge, paddingSmall, paddingSmall, paddingSmall);
+            layout.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
+            layout.setOrientation(LinearLayout.HORIZONTAL);
 
             ProgressBar progressBar = new ProgressBar(context);
-            progressBar.setLayoutParams(new LayoutParams(recommendedSize, recommendedSize));
+            progressBar.setLayoutParams(new LinearLayout.LayoutParams(recommendedSize, recommendedSize));
             progressBar.setIndeterminate(true);
             progressBar.setVisibility(INVISIBLE);
             status = progressBar;
@@ -1016,8 +1020,9 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
             statusText.setSingleLine();
 
 //            this.addView(progressBar);
-            this.addView(status);
-            this.addView(statusText);
+            layout.addView(status);
+            layout.addView(statusText);
+            this.addView(layout);
 
             pullStartedText = "Pull to refresh";
             pullThresholdText = "Release to refresh";
@@ -1031,7 +1036,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
                 }
 
                 @Override
-                public void onPullThreshold(PullState previousState) {
+                public void onPullThreshold(boolean aboveThreshold) {
                     // do nothing
                 }
 
@@ -1106,20 +1111,20 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
         }
 
         public void setStatusView(View view, PullStateListener listener) {
-            removeView(status);
+            layout.removeView(status);
             status = view;
-            addView(view, 0);
+            layout.addView(view, 0);
             this.listener = listener;
         }
 
         @Override
-        public void onPullThreshold(PullState previousState) {
-            if (previousState != PullState.PULL_BOTTOM_THRESHOLD && previousState != PullState.PULL_TOP_THRESHOLD) {
+        public void onPullThreshold(boolean aboveThreshold) {
+            if (aboveThreshold) {
                 statusText.setText(pullThresholdText);
             } else {
                 statusText.setText(pullStartedText);
             }
-            listener.onPullThreshold(previousState);
+            listener.onPullThreshold(aboveThreshold);
         }
 
         @Override

@@ -8,7 +8,7 @@ import android.widget.LinearLayout;
 import android.widget.ListView;
 
 import com.github.yggie.pulltorefresh.PullListFragment;
-import com.github.yggie.pulltorefresh.StatusDrawable;
+import com.github.yggie.pulltorefresh.StatusView;
 
 /**
  * Created by bryan on 27/11/13.
@@ -40,12 +40,10 @@ public class SampleFragment extends PullListFragment {
         final int strokeWidth = (int)(4.0f * logicalDensity + 0.5f);
 
         DefaultPulledView topPulledView = getDefaultTopView();
-        View status = new View(getActivity());
+        StatusView status = new StatusView(getActivity(), true);
         status.setLayoutParams(new LinearLayout.LayoutParams(size, size));
-        StatusDrawable statusDrawable = new StatusDrawable(false);
-        statusDrawable.setStrokeWidth(strokeWidth);
-        status.setBackgroundDrawable(statusDrawable);
-        topPulledView.setStatusView(status, statusDrawable);
+        status.setStrokeWidth(strokeWidth);
+        topPulledView.setStatusView(status, status);
     }
 
     /**
