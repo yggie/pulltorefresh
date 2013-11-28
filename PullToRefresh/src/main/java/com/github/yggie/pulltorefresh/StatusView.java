@@ -36,6 +36,10 @@ public class StatusView extends View implements Runnable, PullListFragment.PullS
         setBackgroundDrawable(drawable);
     }
 
+    public void setStrokeColor(int color) {
+        drawable.setStrokeColor(color);
+    }
+
     public void setStrokeWidth(float width) {
         drawable.setStrokeWidth(width);
     }
@@ -111,8 +115,6 @@ public class StatusView extends View implements Runnable, PullListFragment.PullS
         /** the paint used to draw the arrow */
         private final Paint strokePaint;
 
-        private final Paint backgroundPaint;
-
         private State state;
 
         public StatusDrawable(boolean facingUp) {
@@ -127,14 +129,11 @@ public class StatusView extends View implements Runnable, PullListFragment.PullS
             points = new float[20];
 
             strokePaint = new Paint();
-            strokePaint.setColor(Color.WHITE);
+            strokePaint.setColor(Color.BLACK);
             strokePaint.setStrokeWidth(lineWidth);
             strokePaint.setStrokeCap(Paint.Cap.SQUARE);
             strokePaint.setAntiAlias(true);
             strokePaint.setStyle(Paint.Style.STROKE);
-
-            backgroundPaint = new Paint();
-            backgroundPaint.setColor(Color.BLUE);
 
             state = State.INVISIBLE;
         }
@@ -152,7 +151,6 @@ public class StatusView extends View implements Runnable, PullListFragment.PullS
                     break;
 
                 case PULLING:
-                    canvas.drawRect(getBounds(), backgroundPaint);
                     canvas.save();
                     canvas.rotate(rotation, midX, midY);
                     canvas.drawLine(points[0], points[1], points[2], points[3], strokePaint);
@@ -162,7 +160,6 @@ public class StatusView extends View implements Runnable, PullListFragment.PullS
                     break;
 
                 case REFRESHING:
-                    canvas.drawRect(getBounds(), backgroundPaint);
                     canvas.save();
                     canvas.rotate(rotation, midX, midY);
                     canvas.drawArc(boundingBox, 0.0f, -120.0f, false, strokePaint);
@@ -177,11 +174,20 @@ public class StatusView extends View implements Runnable, PullListFragment.PullS
                     break;
 
                 case COMPLETE:
-                    canvas.drawRect(getBounds(), backgroundPaint);
                     canvas.drawLine(points[0], points[1], points[2], points[3], strokePaint);
                     canvas.drawLine(points[0], points[1], points[4], points[5], strokePaint);
                     break;
             }
+        }
+
+        /**
+         * Set the stroke color to the specified value
+         *
+         * @param color The new color value
+         */
+
+        public void setStrokeColor(int color) {
+            strokePaint.setColor(color);
         }
 
         /**
@@ -193,7 +199,6 @@ public class StatusView extends View implements Runnable, PullListFragment.PullS
         @Override
         public void setAlpha(int alpha) {
             strokePaint.setAlpha(alpha);
-            backgroundPaint.setAlpha(alpha);
         }
 
         /**
@@ -205,7 +210,6 @@ public class StatusView extends View implements Runnable, PullListFragment.PullS
         @Override
         public void setColorFilter(ColorFilter colorFilter) {
             strokePaint.setColorFilter(colorFilter);
-            backgroundPaint.setColorFilter(colorFilter);
         }
 
         /**

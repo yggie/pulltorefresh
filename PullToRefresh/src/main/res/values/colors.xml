@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="pink">#fbf</color>
+    <color name="green">#bfb</color>
+    <color name="cyan">#bff</color>
+    <color name="white">#fff</color>
 </resources>

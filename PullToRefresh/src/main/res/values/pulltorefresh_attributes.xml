@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <declare-styleable name="PullListFragment">
-        <attr name="list_background" format="color"/>
+        <attr name="list_backgroundColor" format="color"/>
         <attr name="list_padding" format="dimension"/>
         <attr name="list_paddingTop" format="dimension"/>
         <attr name="list_paddingBottom" format="dimension"/>
@@ -27,5 +27,16 @@
         <attr name="bottom_refreshCompleteText" format="string"/>
         <attr name="empty_text" format="string"/>
         <attr name="empty_view" format="reference"/>
+        <attr name="top_backgroundColor" format="color"/>
+        <attr name="top_innerBackgroundColor" format="color"/>
+        <attr name="bottom_backgroundColor" format="color"/>
+        <attr name="bottom_innerBackgroundColor" format="color"/>
+        <attr name="pull_delay" format="integer"/>
+        <attr name="pull_damping" format="float"/>
+        <attr name="release_easing" format="float"/>
+        <attr name="top_textColor" format="color"/>
+        <attr name="top_textSize" format="dimension"/>
+        <attr name="bottom_textColor" format="color"/>
+        <attr name="bottom_textSize" format="dimension"/>
     </declare-styleable>
 </resources>

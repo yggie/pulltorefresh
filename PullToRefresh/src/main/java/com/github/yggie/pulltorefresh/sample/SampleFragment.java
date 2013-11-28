@@ -1,5 +1,6 @@
 package com.github.yggie.pulltorefresh.sample;
 
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
@@ -43,6 +44,7 @@ public class SampleFragment extends PullListFragment {
         StatusView status = new StatusView(getActivity(), true);
         status.setLayoutParams(new LinearLayout.LayoutParams(size, size));
         status.setStrokeWidth(strokeWidth);
+        status.setStrokeColor(Color.WHITE);
         topPulledView.setStatusView(status, status);
     }
 

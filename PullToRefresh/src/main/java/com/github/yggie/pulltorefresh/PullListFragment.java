@@ -31,10 +31,6 @@ import android.content.res.TypedArray;
 import android.database.DataSetObserver;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.ColorFilter;
-import android.graphics.Paint;
-import android.graphics.Rect;
-import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.v4.app.Fragment;
@@ -154,7 +150,6 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
         topFrameLayout.setLayoutParams(topViewParams);
         // setup the default child of the FrameLayout
         topManager = new DefaultPulledView(this, true);
-        topManager.setBackgroundColor(Color.CYAN); // for debugging
         topFrameLayout.addView(topManager);
         topPulledView = topFrameLayout;
 
@@ -167,7 +162,6 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
         bottomFrameLayout.setLayoutParams(bottomViewParams);
         // setup the default child in the FrameLayout
         bottomManager = new DefaultPulledView(this, false);
-        bottomManager.setBackgroundColor(Color.MAGENTA); // for debugging
         bottomFrameLayout.addView(bottomManager);
         bottomPulledView = bottomFrameLayout;
 
@@ -185,7 +179,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
         if (attrs != null) {
             final TypedArray a = getActivity().obtainStyledAttributes(attrs, R.styleable.PullListFragment);
             if (a != null) {
-                applyXmlAttributes(a);
+                parseXmlAttributes(a);
                 a.recycle();
             }
             attrs = null;
@@ -200,10 +194,10 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
      * @param a The TypedArray object containing the xml attributes
      */
 
-    private void applyXmlAttributes(final TypedArray a) {
+    private void parseXmlAttributes(final TypedArray a) {
         if (a != null) {
             /** apply the background color */
-            final int backgroundColor = a.getColor(R.styleable.PullListFragment_list_background, 0);
+            final int backgroundColor = a.getColor(R.styleable.PullListFragment_list_backgroundColor, 0);
             if (backgroundColor != 0) {
                 setListViewBackgroundColor(backgroundColor);
             }
@@ -284,6 +278,22 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
                 if (refreshCompleteText != null) {
                     topManager.setRefreshCompleteText(refreshCompleteText);
                 }
+
+                final int bgColor = a.getInt(R.styleable.PullListFragment_top_backgroundColor, -1);
+                if (bgColor != -1) {
+                    topManager.setBackgroundColor(bgColor);
+                }
+
+                final int innerBgColor = a.getInt(R.styleable.PullListFragment_top_innerBackgroundColor, -1);
+                if (innerBgColor != -1) {
+                    topManager.setInnerBackgroundColor(innerBgColor);
+                }
+
+                final int textSize = a.getDimensionPixelSize(R.styleable.PullListFragment_top_textSize, (int)topManager.getTextSize());
+                topManager.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize);
+
+                final int textColor = a.getInt(R.styleable.PullListFragment_top_textColor, topManager.getTextColor());
+                topManager.setTextColor(textColor);
             }
 
             if (bottomManager != null) {
@@ -306,6 +316,22 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
                 if (refreshCompleteText != null) {
                     bottomManager.setRefreshCompleteText(refreshCompleteText);
                 }
+
+                final int bgColor = a.getInt(R.styleable.PullListFragment_bottom_backgroundColor, -1);
+                if (bgColor != -1) {
+                    bottomManager.setBackgroundColor(bgColor);
+                }
+
+                final int innerBgColor = a.getInt(R.styleable.PullListFragment_bottom_innerBackgroundColor, -1);
+                if (innerBgColor != -1) {
+                    bottomManager.setInnerBackgroundColor(innerBgColor);
+                }
+
+                final float textSize = a.getDimensionPixelSize(R.styleable.PullListFragment_bottom_textSize, (int)bottomManager.getTextSize());
+                bottomManager.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize);
+
+                final int textColor = a.getInt(R.styleable.PullListFragment_bottom_textSize, bottomManager.getTextColor());
+                bottomManager.setTextColor(textColor);
             }
 
             /**
@@ -321,6 +347,22 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
                     setEmptyText(emptyText);
                 }
             }
+
+            /**
+             * Apply custom behaviour to scroller
+             */
+
+            final int delay = a.getInt(R.styleable.PullListFragment_pull_delay,
+                    scroller.getOnRequestCompleteDelay());
+            scroller.setOnRequestCompleteDelay(delay);
+
+            final float damping = a.getFloat(R.styleable.PullListFragment_pull_damping,
+                    scroller.getDamping());
+            scroller.setDamping(damping);
+
+            final float easing = a.getFloat(R.styleable.PullListFragment_release_easing,
+                    scroller.getEasing());
+            scroller.setEasing(easing);
 
             a.recycle();
         }
@@ -1057,9 +1099,72 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
             };
         }
 
+        /**
+         * Set the background color for the embedded layout object
+         *
+         * @param color The new background color
+         */
+
+        public void setInnerBackgroundColor(int color) {
+            layout.setBackgroundColor(color);
+        }
+
+        /**
+         * Set the text size to the given value
+         *
+         * @param units The dimension unit to use
+         * @param size The new text size
+         */
+
+        public void setTextSize(int units, float size) {
+            statusText.setTextSize(units, size);
+        }
+
+        /**
+         * Returns the current text size in pixels
+         *
+         * @return The current text size
+         */
+
+        public float getTextSize() {
+            return statusText.getTextSize();
+        }
+
+        /**
+         * Set the text color to the given color
+         *
+         * @param color The new text color
+         */
+
+        public void setTextColor(int color) {
+            statusText.setTextColor(color);
+        }
+
+        /**
+         * Returns the current text color
+         *
+         * @return The current text color of the text view
+         */
+
+        public int getTextColor() {
+            return statusText.getCurrentTextColor();
+        }
+
+        /**
+         * Changes the pull started event text defined by the resource id given
+         *
+         * @param id The resource id
+         */
+
         public void setPullStartedText(int id) {
             pullStartedText = getResources().getString(id);
         }
+
+        /**
+         * Changes the pull started event text to the given value
+         *
+         * @param text The text to use
+         */
 
         public void setPullStartedText(String text) {
             pullStartedText = text;
@@ -1105,17 +1210,29 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
             return refreshCompleteText;
         }
 
-        public void onPullStarted() {
-            statusText.setText(pullStartedText);
-            listener.onPullStarted();
-        }
-
         public void setStatusView(View view, PullStateListener listener) {
             layout.removeView(status);
             status = view;
             layout.addView(view, 0);
             this.listener = listener;
         }
+
+        /**
+         * Called when the pull starts
+         */
+
+        @Override
+        public void onPullStarted() {
+            statusText.setText(pullStartedText);
+            listener.onPullStarted();
+        }
+
+        /**
+         * Called when the pull action passes the threshold
+         *
+         * @param aboveThreshold If true, the event is called when the threshold is reached from
+         *                       below
+         */
 
         @Override
         public void onPullThreshold(boolean aboveThreshold) {
@@ -1127,17 +1244,29 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
             listener.onPullThreshold(aboveThreshold);
         }
 
+        /**
+         * Called when a refresh request has been sent
+         */
+
         @Override
         public void onRefreshRequest() {
             statusText.setText(refreshingText);
             listener.onRefreshRequest();
         }
 
+        /**
+         * Called when the refresh request has been completed
+         */
+
         @Override
         public void onRequestComplete() {
             statusText.setText(refreshCompleteText);
             listener.onRequestComplete();
         }
+
+        /**
+         * Called when the pull ends
+         */
 
         @Override
         public void onPullEnd() {
@@ -1149,7 +1278,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
      * This class implements the over-scrolling behaviour of the ListView
      */
 
-    private static class PullEffectScroller implements Runnable,
+    public static class PullEffectScroller implements Runnable,
             PullListFragment.OnRequestCompleteListener, AbsListView.OnScrollListener {
 
         private static final String TAG = PullEffectScroller.class.getSimpleName();
@@ -1194,7 +1323,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
          * @param parent The parent PullListFragment
          */
 
-        public PullEffectScroller(final PullListFragment parent) {
+        private PullEffectScroller(final PullListFragment parent) {
             this.parent = parent;
             totalOffset = 0.0f;
             previousIntOffset = 0;
@@ -1224,6 +1353,74 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
         private void initialize() {
             // scrolling pullState
             setPullState(PullState.NORMAL);
+        }
+
+        /**
+         * Set the delay between the time when the request is complete and when the release
+         * animation begins. Default is 1000 milliseconds (or 1 second)
+         *
+         * @param delay The new delay in milliseconds
+         */
+
+        public void setOnRequestCompleteDelay(int delay) {
+            this.delay = delay;
+        }
+
+        /**
+         * Returns the delay used in the scroller
+         *
+         * @return The delay used
+         */
+
+        public int getOnRequestCompleteDelay() {
+            return delay;
+        }
+
+        /**
+         * Set the damping factor for the pull animation. This will affect how responsive the pull
+         * action will be. A higher damping factor makes it harder to pull the views. The default
+         * factor is 1
+         *
+         * @param damping The new damping factor
+         */
+
+        public void setDamping(float damping) {
+            this.damping = damping / 100.0f;
+        }
+
+        /**
+         * Returns the damping factor used in the scroller
+         *
+         * @return The damping factor
+         */
+
+        public float getDamping() {
+            return damping * 100.0f;
+        }
+
+        /**
+         * Set the easing factor for the release animation. This will affect how quickly the view
+         * will retract. The easing factor should be between 0 and 1, where a factor of 1 will cause
+         * the view to retract instantly. The default factor is 0.7
+         *
+         * @param easing The new easing factor, should be between 0 and 1
+         */
+
+        public void setEasing(float easing) {
+            if (easing < 0.0f || easing > 1.0f) {
+                throw new IllegalArgumentException("The easing factor must be within 0 and 1");
+            }
+            this.easing = easing;
+        }
+
+        /**
+         * Returns the easing factor used in the scroller
+         *
+         * @return The easing factor used
+         */
+
+        public float getEasing() {
+            return easing;
         }
 
         /**
