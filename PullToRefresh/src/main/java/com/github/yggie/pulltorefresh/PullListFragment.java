@@ -31,6 +31,15 @@ import android.content.res.TypedArray;
 import android.database.DataSetObserver;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.ColorFilter;
+import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.Rect;
+import android.graphics.RectF;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.ShapeDrawable;
+import android.graphics.drawable.shapes.Shape;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.v4.app.Fragment;
@@ -46,7 +55,9 @@ import android.view.ViewGroup;
 import android.view.animation.AnimationUtils;
 import android.widget.AbsListView;
 import android.widget.AdapterView;
+import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListAdapter;
 import android.widget.ListView;
@@ -898,6 +909,184 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
     }
 
     /**
+     * Custom drawable class to represent arrows for the default pulled views
+     */
+
+    private static class ArrowDrawable extends Drawable {
+
+        /** the ideal length-to-edge-width ratio to create an attractive arrow */
+        private static final float LENGTH_TO_EDGE_WIDTH_RATIO = 4.0f;
+
+        /** fields used in the arrow shape computation/rendering */
+        private float rotation;
+        private float scale;
+        private float lineWidth;
+        private final float[] points;
+
+        /** the paint used to draw the arrow */
+        private final Paint strokePaint;
+
+        private final Paint backgroundPaint;
+
+        public ArrowDrawable() {
+            super();
+
+            rotation = 0.0f;
+            scale = 0.7f;
+            lineWidth = 3.0f;
+            points = new float[10];
+
+            strokePaint = new Paint();
+            strokePaint.setColor(Color.RED);
+            strokePaint.setStrokeWidth(lineWidth);
+            strokePaint.setStrokeCap(Paint.Cap.SQUARE);
+            strokePaint.setAntiAlias(true);
+
+            backgroundPaint = new Paint();
+            backgroundPaint.setColor(Color.BLUE);
+        }
+
+        /**
+         * Draw in its bounds respecting optional effects such as alpha and color filter
+         *
+         * @param canvas The graphic context to draw on
+         */
+
+        @Override
+        public void draw(Canvas canvas) {
+            canvas.drawRect(getBounds(), backgroundPaint);
+
+            canvas.drawLine(points[8], points[9], points[2], points[3], strokePaint);
+            canvas.drawLine(points[0], points[1], points[4], points[5], strokePaint);
+            canvas.drawLine(points[0], points[1], points[6], points[7], strokePaint);
+        }
+
+        /**
+         * Specify the alpha value for the drawable
+         *
+         * @param alpha The alpha value
+         */
+
+        @Override
+        public void setAlpha(int alpha) {
+            strokePaint.setAlpha(alpha);
+            backgroundPaint.setAlpha(alpha);
+        }
+
+        /**
+         * Specify an optional color filter for the drawable
+         *
+         * @param colorFilter The color filter
+         */
+
+        @Override
+        public void setColorFilter(ColorFilter colorFilter) {
+            strokePaint.setColorFilter(colorFilter);
+            backgroundPaint.setColorFilter(colorFilter);
+        }
+
+        /**
+         * Returns the opacity/transparency of this drawable
+         *
+         * @return The opacity of the drawable
+         */
+
+        @Override
+        public int getOpacity() {
+            return 255 - strokePaint.getAlpha();
+        }
+
+        /**
+         * Called when the bounds of the drawable changes due to layout
+         *
+         * @param bounds The new bounds of the drawable
+         */
+
+        @Override
+        protected void onBoundsChange(Rect bounds) {
+            super.onBoundsChange(bounds);
+            updateShape();
+        }
+
+        /**
+         * Set the arrow rotation to the specified value
+         *
+         * @param degrees The new rotation value, in degrees
+         */
+
+        public void setRotation(float degrees) {
+            rotation = degrees;
+            updateShape();
+        }
+
+        /**
+         * Set the arrow scale to the value given. A scale of 1.0f corresponds to an arrow length
+         * equal to the view height
+         *
+         * @param scale The scale value
+         */
+
+        public void setScale(float scale) {
+            this.scale = scale;
+            updateShape();
+        }
+
+        /**
+         * Set the stroke width for the paint used
+         *
+         * @param width The new stroke width
+         */
+
+        public void setStrokeWidth(float width) {
+            lineWidth = width;
+            strokePaint.setStrokeWidth(width);
+            updateShape();
+        }
+
+        /**
+         * Updates the arrow points
+         */
+
+        private void updateShape() {
+            final Rect bounds = getBounds();
+            final int width = bounds.width();
+            final int height = bounds.height();
+
+            final float arrowHeight = height * scale;
+            final float edgeWidth = arrowHeight / LENGTH_TO_EDGE_WIDTH_RATIO;
+
+            points[0] = width / 2.0f;
+            points[1] = (height - arrowHeight) / 2.0f;
+
+            points[2] = points[0];
+            points[3] = points[1] + arrowHeight;
+
+            points[4] = points[0] + edgeWidth;
+            points[5] = points[1] + edgeWidth;
+
+            points[6] = points[0] - edgeWidth;
+            points[7] = points[1] + edgeWidth;
+
+            points[8] = points[0];
+            points[9] = points[1] + lineWidth;
+
+            final float rad = (float)Math.toRadians(rotation);
+            final float s = (float)Math.sin(rad);
+            final float c = (float)Math.cos(rad);
+
+            final float midX = width / 2.0f;
+            final float midY = height / 2.0f;
+
+            for (int i = 0; i < 5; i++) {
+                final float x = points[2*i] - midX;
+                final float y = points[2*i + 1] - midY;
+                points[2*i] = x*c - y*s + midX;
+                points[2*i + 1] = x*s + y*c + midY;
+            }
+        }
+    }
+
+    /**
      * This class extends RelativeLayout to listen to changes in the layout
      */
 
@@ -950,6 +1139,148 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
         @Override
         public boolean onTouchEvent(MotionEvent e) {
             return parent.scroller.onTouchEvent(e) || super.onTouchEvent(e);
+        }
+    }
+    /**
+     * A convenient class to manage default pulled view behaviour
+     */
+
+    public static class DefaultPulledView extends LinearLayout {
+
+        private final TextView statusText;
+        private final View progress;
+        private final ArrowDrawable arrowDrawable;
+//        private final ProgressBar progressBar;
+
+        private String pullStartedText;
+        private String pullThresholdText;
+        private String refreshingText;
+        private String refreshCompleteText;
+
+        public DefaultPulledView(PullListFragment parent, boolean isTop) {
+            super(parent.getActivity());
+
+            final Context context = getContext();
+            final float logicalDensity = context.getResources().getDisplayMetrics().density;
+
+            final int recommendedSize = (int)(48.0f * logicalDensity + 0.5f);
+            final int paddingLarge = (int)(32.0f * logicalDensity + 0.5f);
+            final int paddingMedium = (int)(16.0f * logicalDensity + 0.5f);
+            final int paddingSmall = (int)(8.0f * logicalDensity + 0.5f);
+            this.setLayoutParams(new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, 2 * recommendedSize));
+            if (isTop) {
+                this.setPadding(paddingLarge, paddingLarge, paddingMedium, paddingSmall);
+            } else {
+                this.setPadding(paddingLarge, paddingSmall, paddingMedium, paddingLarge);
+            }
+            this.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
+            this.setOrientation(HORIZONTAL);
+
+            progress = new View(context);
+            progress.setLayoutParams(new LayoutParams(recommendedSize, recommendedSize));
+            arrowDrawable = new ArrowDrawable();
+            arrowDrawable.setStrokeWidth(paddingSmall / 2.0f);
+            if (isTop) {
+                arrowDrawable.setRotation(180.0f);
+            }
+            progress.setBackgroundDrawable(arrowDrawable);
+//            progressBar = new ProgressBar(context);
+//            progressBar.setLayoutParams(new LayoutParams(recommendedSize, recommendedSize));
+//            progressBar.setIndeterminate(true);
+//            progressBar.setVisibility(INVISIBLE);
+
+            final int textIndent = (int)(8.0f * logicalDensity + 0.5f);
+            statusText = new TextView(context);
+            statusText.setLayoutParams(new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
+            statusText.setPadding(textIndent, 0, 0, 0);
+            statusText.setTextSize(18.0f);
+            statusText.setText("You should not be able to see this text");
+            statusText.setEllipsize(TextUtils.TruncateAt.END);
+            statusText.setLines(1);
+            statusText.setSingleLine();
+
+//            this.addView(progressBar);
+            this.addView(progress);
+            this.addView(statusText);
+
+            pullStartedText = "Pull to refresh";
+            pullThresholdText = "Release to refresh";
+            refreshingText = "Refreshing";
+            refreshCompleteText = "Refresh complete";
+        }
+
+        public void setPullStartedText(int id) {
+            pullStartedText = getResources().getString(id);
+        }
+
+        public void setPullStartedText(String text) {
+            pullStartedText = text;
+        }
+
+        public String getPullStartedText() {
+            return pullStartedText;
+        }
+
+        public void setPullThresholdText(int id) {
+            pullThresholdText = getResources().getString(id);
+        }
+
+        public void setPullThresholdText(String text) {
+            pullThresholdText = text;
+        }
+
+        public String getPullThresholdText() {
+            return pullThresholdText;
+        }
+
+        public void setRefreshingText(int resId) {
+            refreshingText = getResources().getString(resId);
+        }
+
+        public void setRefreshingText(String text) {
+            refreshingText = text;
+        }
+
+        public String getRefreshingText() {
+            return refreshingText;
+        }
+
+        public void setRefreshCompleteText(int resId) {
+            refreshCompleteText = getResources().getString(resId);
+        }
+
+        public void setRefreshCompleteText(String text) {
+            refreshCompleteText = text;
+        }
+
+        public String getRefreshCompleteText() {
+            return refreshCompleteText;
+        }
+
+        public void onPullStarted() {
+            statusText.setText(pullStartedText);
+        }
+
+        public void onPullThreshold(PullState previousState) {
+            if (previousState != PullState.PULL_BOTTOM_THRESHOLD && previousState != PullState.PULL_TOP_THRESHOLD) {
+                statusText.setText(pullThresholdText);
+            } else {
+                statusText.setText(pullStartedText);
+            }
+        }
+
+        public void onRefreshRequest() {
+            statusText.setText(refreshingText);
+//            progressBar.setVisibility(VISIBLE);
+        }
+
+        public void onRequestComplete() {
+            statusText.setText(refreshCompleteText);
+//            progressBar.setVisibility(INVISIBLE);
+        }
+
+        public void onPullEnd() {
+            // do nothing
         }
     }
 
@@ -1495,138 +1826,4 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
         }
     }
 
-    /**
-     * A convenient class to manage default pulled view behaviour
-     */
-
-    public static class DefaultPulledView extends LinearLayout {
-
-        private final TextView statusText;
-        private final ProgressBar progressBar;
-
-        private final boolean isTop;
-
-        private String pullStartedText;
-        private String pullThresholdText;
-        private String refreshingText;
-        private String refreshCompleteText;
-
-        public DefaultPulledView(PullListFragment parent, boolean isTop) {
-            super(parent.getActivity());
-            this.isTop = isTop;
-
-            final Context context = getContext();
-            final float logicalDensity = context.getResources().getDisplayMetrics().density;
-
-            final int recommendedSize = (int)(48.0f * logicalDensity + 0.5f);
-            final int paddingLarge = (int)(32.0f * logicalDensity + 0.5f);
-            final int paddingMedium = (int)(16.0f * logicalDensity + 0.5f);
-            final int paddingSmall = (int)(8.0f * logicalDensity + 0.5f);
-            this.setLayoutParams(new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, 2 * recommendedSize));
-            if (isTop) {
-                this.setPadding(paddingLarge, paddingLarge, paddingMedium, paddingSmall);
-            } else {
-                this.setPadding(paddingLarge, paddingSmall, paddingMedium, paddingLarge);
-            }
-            this.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
-            this.setOrientation(HORIZONTAL);
-
-            progressBar = new ProgressBar(context);
-            progressBar.setLayoutParams(new LayoutParams(recommendedSize, recommendedSize));
-            progressBar.setIndeterminate(true);
-            progressBar.setVisibility(INVISIBLE);
-
-            final int textIndent = (int)(8.0f * logicalDensity + 0.5f);
-            statusText = new TextView(context);
-            statusText.setLayoutParams(new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
-            statusText.setPadding(textIndent, 0, 0, 0);
-            statusText.setTextSize(18.0f);
-            statusText.setText("You should not be able to see this text");
-            statusText.setEllipsize(TextUtils.TruncateAt.END);
-            statusText.setLines(1);
-            statusText.setSingleLine();
-
-            this.addView(progressBar);
-            this.addView(statusText);
-
-            pullStartedText = "Pull to refresh";
-            pullThresholdText = "Release to refresh";
-            refreshingText = "Refreshing";
-            refreshCompleteText = "Refresh complete";
-        }
-
-        public void setPullStartedText(int id) {
-            pullStartedText = getResources().getString(id);
-        }
-
-        public void setPullStartedText(String text) {
-            pullStartedText = text;
-        }
-
-        public String getPullStartedText() {
-            return pullStartedText;
-        }
-
-        public void setPullThresholdText(int id) {
-            pullThresholdText = getResources().getString(id);
-        }
-
-        public void setPullThresholdText(String text) {
-            pullThresholdText = text;
-        }
-
-        public String getPullThresholdText() {
-            return pullThresholdText;
-        }
-
-        public void setRefreshingText(int resId) {
-            refreshingText = getResources().getString(resId);
-        }
-
-        public void setRefreshingText(String text) {
-            refreshingText = text;
-        }
-
-        public String getRefreshingText() {
-            return refreshingText;
-        }
-
-        public void setRefreshCompleteText(int resId) {
-            refreshCompleteText = getResources().getString(resId);
-        }
-
-        public void setRefreshCompleteText(String text) {
-            refreshCompleteText = text;
-        }
-
-        public String getRefreshCompleteText() {
-            return refreshCompleteText;
-        }
-
-        public void onPullStarted() {
-            statusText.setText(pullStartedText);
-        }
-
-        public void onPullThreshold(PullState previousState) {
-            if (previousState != PullState.PULL_BOTTOM_THRESHOLD && previousState != PullState.PULL_TOP_THRESHOLD) {
-                statusText.setText(pullThresholdText);
-            } else {
-                statusText.setText(pullStartedText);
-            }
-        }
-
-        public void onRefreshRequest() {
-            statusText.setText(refreshingText);
-            progressBar.setVisibility(VISIBLE);
-        }
-
-        public void onRequestComplete() {
-            statusText.setText(refreshCompleteText);
-            progressBar.setVisibility(INVISIBLE);
-        }
-
-        public void onPullEnd() {
-            // do nothing
-        }
-    }
 }
