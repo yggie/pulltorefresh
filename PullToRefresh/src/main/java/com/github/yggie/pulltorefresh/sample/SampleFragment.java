@@ -4,9 +4,11 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
 import android.view.View;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 
 import com.github.yggie.pulltorefresh.PullListFragment;
+import com.github.yggie.pulltorefresh.StatusDrawable;
 
 /**
  * Created by bryan on 27/11/13.
@@ -32,6 +34,18 @@ public class SampleFragment extends PullListFragment {
             pulledView.setPullStartedText("Help me!");
             pulledView.setPullThresholdText("Don't let go!");
         }
+
+        final float logicalDensity = getResources().getDisplayMetrics().density;
+        final int size = (int)(48.0f * logicalDensity + 0.5f);
+        final int strokeWidth = (int)(4.0f * logicalDensity + 0.5f);
+
+        DefaultPulledView topPulledView = getDefaultTopView();
+        View status = new View(getActivity());
+        status.setLayoutParams(new LinearLayout.LayoutParams(size, size));
+        StatusDrawable statusDrawable = new StatusDrawable(false);
+        statusDrawable.setStrokeWidth(strokeWidth);
+        status.setBackgroundDrawable(statusDrawable);
+        topPulledView.setStatusView(status, statusDrawable);
     }
 
     /**

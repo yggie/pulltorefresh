@@ -48,13 +48,13 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AnimationUtils;
-import android.view.animation.RotateAnimation;
 import android.widget.AbsListView;
 import android.widget.AdapterView;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ListAdapter;
 import android.widget.ListView;
+import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
@@ -868,6 +868,14 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
         setListShown(false);
     }
 
+    public static interface PullStateListener {
+        public void onPullStarted();
+        public void onPullThreshold(PullState previousState);
+        public void onRefreshRequest();
+        public void onRequestComplete();
+        public void onPullEnd();
+    }
+
     /**
      * When a refresh is requested, this listener waits for the results to complete
      */
@@ -898,209 +906,6 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
         @Override
         public void onInvalidated() {
             PullListFragment.this.onDataSetInvalidated();
-        }
-    }
-
-    /**
-     * Custom drawable class to represent arrows for the default pulled views
-     */
-
-    private static class ArrowDrawable extends Drawable implements Runnable {
-
-        /** the ideal length-to-edge-width ratio to create an attractive arrow */
-        private static final float LENGTH_TO_EDGE_WIDTH_RATIO = 4.0f;
-
-        private static final float EASING = 0.7f;
-
-        private static final Handler handler = new Handler();
-
-        /** fields used in the arrow shape computation/rendering */
-        private float targetRotation;
-        private float rotation;
-        private float scale;
-        private float lineWidth;
-        private final float[] points;
-
-        /** the paint used to draw the arrow */
-        private final Paint strokePaint;
-
-        private final Paint backgroundPaint;
-
-        public ArrowDrawable() {
-            super();
-
-            rotation = 0.0f;
-            targetRotation = 0.0f;
-            scale = 0.7f;
-            lineWidth = 3.0f;
-            points = new float[10];
-
-            strokePaint = new Paint();
-            strokePaint.setColor(Color.RED);
-            strokePaint.setStrokeWidth(lineWidth);
-            strokePaint.setStrokeCap(Paint.Cap.SQUARE);
-            strokePaint.setAntiAlias(true);
-
-            backgroundPaint = new Paint();
-            backgroundPaint.setColor(Color.BLUE);
-        }
-
-        /**
-         * Draw in its bounds respecting optional effects such as alpha and color filter
-         *
-         * @param canvas The graphic context to draw on
-         */
-
-        @Override
-        public void draw(Canvas canvas) {
-            canvas.drawRect(getBounds(), backgroundPaint);
-
-            canvas.drawLine(points[8], points[9], points[2], points[3], strokePaint);
-            canvas.drawLine(points[0], points[1], points[4], points[5], strokePaint);
-            canvas.drawLine(points[0], points[1], points[6], points[7], strokePaint);
-        }
-
-        /**
-         * Specify the alpha value for the drawable
-         *
-         * @param alpha The alpha value
-         */
-
-        @Override
-        public void setAlpha(int alpha) {
-            strokePaint.setAlpha(alpha);
-            backgroundPaint.setAlpha(alpha);
-        }
-
-        /**
-         * Specify an optional color filter for the drawable
-         *
-         * @param colorFilter The color filter
-         */
-
-        @Override
-        public void setColorFilter(ColorFilter colorFilter) {
-            strokePaint.setColorFilter(colorFilter);
-            backgroundPaint.setColorFilter(colorFilter);
-        }
-
-        /**
-         * Returns the opacity/transparency of this drawable
-         *
-         * @return The opacity of the drawable
-         */
-
-        @Override
-        public int getOpacity() {
-            return 255 - strokePaint.getAlpha();
-        }
-
-        /**
-         * Called when the bounds of the drawable changes due to layout
-         *
-         * @param bounds The new bounds of the drawable
-         */
-
-        @Override
-        protected void onBoundsChange(Rect bounds) {
-            super.onBoundsChange(bounds);
-            updateShape();
-        }
-
-        /**
-         * Set the arrow rotation to the specified value
-         *
-         * @param degrees The new rotation value, in degrees
-         */
-
-        public void setRotation(float degrees) {
-            rotation = degrees;
-            targetRotation = rotation;
-            updateShape();
-        }
-
-        /**
-         * Set the arrow scale to the value given. A scale of 1.0f corresponds to an arrow length
-         * equal to the view height
-         *
-         * @param scale The scale value
-         */
-
-        public void setScale(float scale) {
-            this.scale = scale;
-            updateShape();
-        }
-
-        /**
-         * Set the stroke width for the paint used
-         *
-         * @param width The new stroke width
-         */
-
-        public void setStrokeWidth(float width) {
-            lineWidth = width;
-            strokePaint.setStrokeWidth(width);
-            updateShape();
-        }
-
-        public void animateToRotationOffset(float degrees) {
-            targetRotation += degrees;
-            handler.post(this);
-        }
-
-        /**
-         * Updates the arrow points
-         */
-
-        private void updateShape() {
-            final Rect bounds = getBounds();
-            final int width = bounds.width();
-            final int height = bounds.height();
-
-            final float arrowHeight = height * scale;
-            final float edgeWidth = arrowHeight / LENGTH_TO_EDGE_WIDTH_RATIO;
-
-            points[0] = width / 2.0f;
-            points[1] = (height - arrowHeight) / 2.0f;
-
-            points[2] = points[0];
-            points[3] = points[1] + arrowHeight;
-
-            points[4] = points[0] + edgeWidth;
-            points[5] = points[1] + edgeWidth;
-
-            points[6] = points[0] - edgeWidth;
-            points[7] = points[1] + edgeWidth;
-
-            points[8] = points[0];
-            points[9] = points[1] + lineWidth;
-
-            final float rad = (float)Math.toRadians(rotation);
-            final float s = (float)Math.sin(rad);
-            final float c = (float)Math.cos(rad);
-
-            final float midX = width / 2.0f;
-            final float midY = height / 2.0f;
-
-            for (int i = 0; i < 5; i++) {
-                final float x = points[2*i] - midX;
-                final float y = points[2*i + 1] - midY;
-                points[2*i] = x*c - y*s + midX;
-                points[2*i + 1] = x*s + y*c + midY;
-            }
-        }
-
-        @Override
-        public void run() {
-            if (Math.abs(targetRotation - rotation) < 1.0f) {
-                rotation = targetRotation;
-            } else {
-                rotation *= EASING;
-                rotation += targetRotation * (1.0f - EASING);
-
-                handler.postDelayed(this, 15);
-            }
-            updateShape();
         }
     }
 
@@ -1163,13 +968,12 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
      * A convenient class to manage default pulled view behaviour
      */
 
-    public static class DefaultPulledView extends LinearLayout {
+    public static class DefaultPulledView extends LinearLayout implements PullStateListener {
 
-        private final boolean isTop;
+        private PullStateListener listener;
 
         private final TextView statusText;
-        private final View status;
-        private final ArrowDrawable arrowDrawable;
+        private View status;
 
         private String pullStartedText;
         private String pullThresholdText;
@@ -1178,7 +982,6 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
 
         public DefaultPulledView(PullListFragment parent, boolean isTop) {
             super(parent.getActivity());
-            this.isTop = isTop;
 
             final Context context = getContext();
             final float logicalDensity = context.getResources().getDisplayMetrics().density;
@@ -1187,7 +990,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
             final int paddingLarge = (int)(32.0f * logicalDensity + 0.5f);
             final int paddingMedium = (int)(16.0f * logicalDensity + 0.5f);
             final int paddingSmall = (int)(8.0f * logicalDensity + 0.5f);
-            this.setLayoutParams(new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, 2 * recommendedSize));
+            this.setLayoutParams(new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
             if (isTop) {
                 this.setPadding(paddingLarge, paddingLarge, paddingMedium, paddingSmall);
             } else {
@@ -1196,11 +999,11 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
             this.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
             this.setOrientation(HORIZONTAL);
 
-            status = new View(context);
-            status.setLayoutParams(new LayoutParams(recommendedSize, recommendedSize));
-            arrowDrawable = new ArrowDrawable();
-            arrowDrawable.setStrokeWidth(paddingSmall / 2.0f);
-            status.setBackgroundDrawable(arrowDrawable);
+            ProgressBar progressBar = new ProgressBar(context);
+            progressBar.setLayoutParams(new LayoutParams(recommendedSize, recommendedSize));
+            progressBar.setIndeterminate(true);
+            progressBar.setVisibility(INVISIBLE);
+            status = progressBar;
 
             final int textIndent = (int)(8.0f * logicalDensity + 0.5f);
             statusText = new TextView(context);
@@ -1220,6 +1023,33 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
             pullThresholdText = "Release to refresh";
             refreshingText = "Refreshing";
             refreshCompleteText = "Refresh complete";
+
+            listener = new PullStateListener() {
+                @Override
+                public void onPullStarted() {
+                    // do nothing
+                }
+
+                @Override
+                public void onPullThreshold(PullState previousState) {
+                    // do nothing
+                }
+
+                @Override
+                public void onRefreshRequest() {
+                    status.setVisibility(VISIBLE);
+                }
+
+                @Override
+                public void onRequestComplete() {
+                    status.setVisibility(INVISIBLE);
+                }
+
+                @Override
+                public void onPullEnd() {
+                    // do nothing
+                }
+            };
         }
 
         public void setPullStartedText(int id) {
@@ -1272,33 +1102,41 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
 
         public void onPullStarted() {
             statusText.setText(pullStartedText);
-            if (isTop) {
-                arrowDrawable.setRotation(180.0f);
-            } else {
-                arrowDrawable.setRotation(0.0f);
-            }
+            listener.onPullStarted();
         }
 
+        public void setStatusView(View view, PullStateListener listener) {
+            removeView(status);
+            status = view;
+            addView(view, 0);
+            this.listener = listener;
+        }
+
+        @Override
         public void onPullThreshold(PullState previousState) {
             if (previousState != PullState.PULL_BOTTOM_THRESHOLD && previousState != PullState.PULL_TOP_THRESHOLD) {
                 statusText.setText(pullThresholdText);
-                arrowDrawable.animateToRotationOffset(180.0f);
             } else {
                 statusText.setText(pullStartedText);
-                arrowDrawable.animateToRotationOffset(180.0f);
             }
+            listener.onPullThreshold(previousState);
         }
 
+        @Override
         public void onRefreshRequest() {
             statusText.setText(refreshingText);
+            listener.onRefreshRequest();
         }
 
+        @Override
         public void onRequestComplete() {
             statusText.setText(refreshCompleteText);
+            listener.onRequestComplete();
         }
 
+        @Override
         public void onPullEnd() {
-            // do nothing
+            listener.onPullEnd();
         }
     }
 
@@ -1844,5 +1682,4 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
             }
         }
     }
-
 }

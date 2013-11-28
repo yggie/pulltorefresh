@@ -27,6 +27,7 @@ public class MainActivity extends FragmentActivity {
         final PullListFragment pullListFragment = (PullListFragment)getSupportFragmentManager()
                 .findFragmentById(R.id.pull_fragment);
 
+        // TODO fix null pointer exception when orientation changes quickly
         final Handler handler = new Handler();
         handler.postDelayed(new Runnable() {
             @Override
