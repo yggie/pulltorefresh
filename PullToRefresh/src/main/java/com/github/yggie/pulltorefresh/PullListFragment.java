@@ -33,13 +33,8 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
 import android.graphics.Paint;
-import android.graphics.Path;
 import android.graphics.Rect;
-import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
-import android.graphics.drawable.ShapeDrawable;
-import android.graphics.drawable.shapes.Shape;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.v4.app.Fragment;
@@ -53,15 +48,13 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AnimationUtils;
+import android.view.animation.RotateAnimation;
 import android.widget.AbsListView;
 import android.widget.AdapterView;
-import android.widget.Button;
 import android.widget.FrameLayout;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListAdapter;
 import android.widget.ListView;
-import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
@@ -912,12 +905,17 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
      * Custom drawable class to represent arrows for the default pulled views
      */
 
-    private static class ArrowDrawable extends Drawable {
+    private static class ArrowDrawable extends Drawable implements Runnable {
 
         /** the ideal length-to-edge-width ratio to create an attractive arrow */
         private static final float LENGTH_TO_EDGE_WIDTH_RATIO = 4.0f;
 
+        private static final float EASING = 0.7f;
+
+        private static final Handler handler = new Handler();
+
         /** fields used in the arrow shape computation/rendering */
+        private float targetRotation;
         private float rotation;
         private float scale;
         private float lineWidth;
@@ -932,6 +930,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
             super();
 
             rotation = 0.0f;
+            targetRotation = 0.0f;
             scale = 0.7f;
             lineWidth = 3.0f;
             points = new float[10];
@@ -1016,6 +1015,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
 
         public void setRotation(float degrees) {
             rotation = degrees;
+            targetRotation = rotation;
             updateShape();
         }
 
@@ -1041,6 +1041,11 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
             lineWidth = width;
             strokePaint.setStrokeWidth(width);
             updateShape();
+        }
+
+        public void animateToRotationOffset(float degrees) {
+            targetRotation += degrees;
+            handler.post(this);
         }
 
         /**
@@ -1083,6 +1088,19 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
                 points[2*i] = x*c - y*s + midX;
                 points[2*i + 1] = x*s + y*c + midY;
             }
+        }
+
+        @Override
+        public void run() {
+            if (Math.abs(targetRotation - rotation) < 1.0f) {
+                rotation = targetRotation;
+            } else {
+                rotation *= EASING;
+                rotation += targetRotation * (1.0f - EASING);
+
+                handler.postDelayed(this, 15);
+            }
+            updateShape();
         }
     }
 
@@ -1147,10 +1165,11 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
 
     public static class DefaultPulledView extends LinearLayout {
 
+        private final boolean isTop;
+
         private final TextView statusText;
-        private final View progress;
+        private final View status;
         private final ArrowDrawable arrowDrawable;
-//        private final ProgressBar progressBar;
 
         private String pullStartedText;
         private String pullThresholdText;
@@ -1159,6 +1178,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
 
         public DefaultPulledView(PullListFragment parent, boolean isTop) {
             super(parent.getActivity());
+            this.isTop = isTop;
 
             final Context context = getContext();
             final float logicalDensity = context.getResources().getDisplayMetrics().density;
@@ -1176,18 +1196,11 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
             this.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
             this.setOrientation(HORIZONTAL);
 
-            progress = new View(context);
-            progress.setLayoutParams(new LayoutParams(recommendedSize, recommendedSize));
+            status = new View(context);
+            status.setLayoutParams(new LayoutParams(recommendedSize, recommendedSize));
             arrowDrawable = new ArrowDrawable();
             arrowDrawable.setStrokeWidth(paddingSmall / 2.0f);
-            if (isTop) {
-                arrowDrawable.setRotation(180.0f);
-            }
-            progress.setBackgroundDrawable(arrowDrawable);
-//            progressBar = new ProgressBar(context);
-//            progressBar.setLayoutParams(new LayoutParams(recommendedSize, recommendedSize));
-//            progressBar.setIndeterminate(true);
-//            progressBar.setVisibility(INVISIBLE);
+            status.setBackgroundDrawable(arrowDrawable);
 
             final int textIndent = (int)(8.0f * logicalDensity + 0.5f);
             statusText = new TextView(context);
@@ -1200,7 +1213,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
             statusText.setSingleLine();
 
 //            this.addView(progressBar);
-            this.addView(progress);
+            this.addView(status);
             this.addView(statusText);
 
             pullStartedText = "Pull to refresh";
@@ -1259,24 +1272,29 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
 
         public void onPullStarted() {
             statusText.setText(pullStartedText);
+            if (isTop) {
+                arrowDrawable.setRotation(180.0f);
+            } else {
+                arrowDrawable.setRotation(0.0f);
+            }
         }
 
         public void onPullThreshold(PullState previousState) {
             if (previousState != PullState.PULL_BOTTOM_THRESHOLD && previousState != PullState.PULL_TOP_THRESHOLD) {
                 statusText.setText(pullThresholdText);
+                arrowDrawable.animateToRotationOffset(180.0f);
             } else {
                 statusText.setText(pullStartedText);
+                arrowDrawable.animateToRotationOffset(180.0f);
             }
         }
 
         public void onRefreshRequest() {
             statusText.setText(refreshingText);
-//            progressBar.setVisibility(VISIBLE);
         }
 
         public void onRequestComplete() {
             statusText.setText(refreshCompleteText);
-//            progressBar.setVisibility(INVISIBLE);
         }
 
         public void onPullEnd() {
@@ -1295,6 +1313,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
 
         private static final float OVER_SCROLL_THRESHOLD = 2.0f;
 
+        /** default wait period between each scroll animation step, used for pull released */
         private static final int ANIMATION_WAIT = 15;
 
         /** related to pulling behaviour */
