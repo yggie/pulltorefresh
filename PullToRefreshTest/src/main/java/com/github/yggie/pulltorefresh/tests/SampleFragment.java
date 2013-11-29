@@ -17,6 +17,7 @@ import com.github.yggie.pulltorefresh.StatusView;
 public class SampleFragment extends PullListFragment {
 
     private final Handler handler = new Handler();
+    private boolean random = false;
 
     /**
      * Override this method to ensure all the views have been initialized
@@ -64,7 +65,8 @@ public class SampleFragment extends PullListFragment {
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                listener.onRequestComplete();
+                random = !random;
+                listener.onRequestComplete(random);
             }
         }, 1000);
     }
@@ -72,6 +74,6 @@ public class SampleFragment extends PullListFragment {
     @Override
     public void onListItemClick(ListView listView, View view, int position, long id) {
         super.onListItemClick(listView, view, position, id);
-        Log.d("***", "You clicked " + position + " with id = " + id);
+//        Log.d("***", "You clicked " + position + " with id = " + id);
     }
 }

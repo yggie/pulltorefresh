@@ -21,7 +21,8 @@ public class StatusView extends View implements Runnable, PullListFragment.PullS
         INVISIBLE,
         PULLING,
         REFRESHING,
-        COMPLETE
+        COMPLETE_SUCCESS,
+        COMPLETE_FAILURE
     }
 
     private StatusDrawable drawable;
@@ -66,8 +67,12 @@ public class StatusView extends View implements Runnable, PullListFragment.PullS
     }
 
     @Override
-    public void onRequestComplete() {
-        drawable.setState(State.COMPLETE);
+    public void onRequestComplete(boolean success) {
+        if (success) {
+            drawable.setState(State.COMPLETE_SUCCESS);
+        } else {
+            drawable.setState(State.COMPLETE_FAILURE);
+        }
     }
 
     @Override
@@ -173,9 +178,14 @@ public class StatusView extends View implements Runnable, PullListFragment.PullS
                     canvas.restore();
                     break;
 
-                case COMPLETE:
+                case COMPLETE_SUCCESS:
                     canvas.drawLine(points[0], points[1], points[2], points[3], strokePaint);
                     canvas.drawLine(points[0], points[1], points[4], points[5], strokePaint);
+                    break;
+
+                case COMPLETE_FAILURE:
+                    canvas.drawLine(points[0], points[1], points[2], points[3], strokePaint);
+                    canvas.drawLine(points[4], points[5], points[6], points[7], strokePaint);
                     break;
             }
         }
@@ -363,7 +373,7 @@ public class StatusView extends View implements Runnable, PullListFragment.PullS
                 }
                 break;
 
-                case COMPLETE:
+                case COMPLETE_SUCCESS:
                 {
                     final float smallEdge = scale * width / 5.0f;
                     final float largeEdge = COMPLETE_LARGE_TO_SMALL_EDGE_RATIO * smallEdge;
@@ -376,6 +386,24 @@ public class StatusView extends View implements Runnable, PullListFragment.PullS
 
                     points[4] = points[0] + largeEdge;
                     points[5] = points[1] - largeEdge;
+                }
+                    break;
+
+                case COMPLETE_FAILURE:
+                {
+                    final float edge = scale * Math.min(width, height) / (2.0f * 1.414f) - lineWidth;
+
+                    points[0] = midX + edge;
+                    points[1] = midY + edge;
+
+                    points[2] = midX - edge;
+                    points[3] = midY - edge;
+
+                    points[4] = midX + edge;
+                    points[5] = midY - edge;
+
+                    points[6] = midX - edge;
+                    points[7] = midY + edge;
                 }
                     break;
             }
@@ -409,7 +437,10 @@ public class StatusView extends View implements Runnable, PullListFragment.PullS
                     }
                     break;
 
-                case COMPLETE:
+                case COMPLETE_SUCCESS:
+                    break;
+
+                case COMPLETE_FAILURE:
                     break;
             }
 

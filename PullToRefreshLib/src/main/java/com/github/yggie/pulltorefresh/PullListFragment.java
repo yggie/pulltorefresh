@@ -274,9 +274,14 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
                     topManager.setRefreshingText(refreshingText);
                 }
 
-                final String refreshCompleteText = a.getString(R.styleable.PullListFragment_top_refreshCompleteText);
-                if (refreshCompleteText != null) {
-                    topManager.setRefreshCompleteText(refreshCompleteText);
+                final String refreshSuccessText = a.getString(R.styleable.PullListFragment_top_refreshSuccessText);
+                if (refreshSuccessText != null) {
+                    topManager.setRefreshSuccessText(refreshSuccessText);
+                }
+
+                final String refreshFailedText = a.getString(R.styleable.PullListFragment_top_refreshFailedText);
+                if (refreshFailedText != null) {
+                    topManager.setRefreshFailedText(refreshFailedText);
                 }
 
                 final int bgColor = a.getInt(R.styleable.PullListFragment_top_backgroundColor, -1);
@@ -312,9 +317,14 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
                     bottomManager.setRefreshingText(refreshingText);
                 }
 
-                final String refreshCompleteText = a.getString(R.styleable.PullListFragment_bottom_refreshCompleteText);
-                if (refreshCompleteText != null) {
-                    bottomManager.setRefreshCompleteText(refreshCompleteText);
+                final String refreshSuccessText = a.getString(R.styleable.PullListFragment_bottom_refreshSuccessText);
+                if (refreshSuccessText != null) {
+                    bottomManager.setRefreshSuccessText(refreshSuccessText);
+                }
+
+                final String refreshFailedText = a.getString(R.styleable.PullListFragment_bottom_refreshFailedText);
+                if (refreshFailedText != null) {
+                    bottomManager.setRefreshFailedText(refreshFailedText);
                 }
 
                 final int bgColor = a.getInt(R.styleable.PullListFragment_bottom_backgroundColor, -1);
@@ -817,14 +827,15 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
      *
      * Default behaviour updates the default views if they are in use
      *
+     * @param success If true, the refresh request was completed successfully
      * @param isTop If true, the top view is begin pulled
      */
 
-    protected void onRequestComplete(boolean isTop) {
+    protected void onRequestComplete(boolean success, boolean isTop) {
         if (isTop) {
-            if (topManager != null) topManager.onRequestComplete();
+            if (topManager != null) topManager.onRequestComplete(success);
         } else if (bottomManager != null) {
-            bottomManager.onRequestComplete();
+            bottomManager.onRequestComplete(success);
         }
     }
 
@@ -914,7 +925,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
         public void onPullStarted();
         public void onPullThreshold(boolean aboveThreshold);
         public void onRefreshRequest();
-        public void onRequestComplete();
+        public void onRequestComplete(boolean success);
         public void onPullEnd();
     }
 
@@ -923,7 +934,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
      */
 
     public static interface OnRequestCompleteListener {
-        public void onRequestComplete();
+        public void onRequestComplete(boolean success);
     }
 
     /**
@@ -1021,7 +1032,8 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
         private String pullStartedText;
         private String pullThresholdText;
         private String refreshingText;
-        private String refreshCompleteText;
+        private String refreshSuccessText;
+        private String refreshFailedText;
 
         public DefaultPulledView(PullListFragment parent, boolean isTop) {
             super(parent.getActivity());
@@ -1069,7 +1081,8 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
             pullStartedText = "Pull to refresh";
             pullThresholdText = "Release to refresh";
             refreshingText = "Refreshing";
-            refreshCompleteText = "Refresh complete";
+            refreshSuccessText = "Refresh complete";
+            refreshFailedText = "Refresh failed";
 
             listener = new PullStateListener() {
                 @Override
@@ -1088,7 +1101,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
                 }
 
                 @Override
-                public void onRequestComplete() {
+                public void onRequestComplete(boolean success) {
                     status.setVisibility(INVISIBLE);
                 }
 
@@ -1198,16 +1211,28 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
             return refreshingText;
         }
 
-        public void setRefreshCompleteText(int resId) {
-            refreshCompleteText = getResources().getString(resId);
+        public void setRefreshSuccessText(int resId) {
+            refreshSuccessText = getResources().getString(resId);
         }
 
-        public void setRefreshCompleteText(String text) {
-            refreshCompleteText = text;
+        public void setRefreshSuccessText(String text) {
+            refreshSuccessText = text;
         }
 
-        public String getRefreshCompleteText() {
-            return refreshCompleteText;
+        public String getRefreshSuccessText() {
+            return refreshSuccessText;
+        }
+
+        public void setRefreshFailedText(int resId) {
+            refreshFailedText = getResources().getString(resId);
+        }
+
+        public void setRefreshFailedText(String text) {
+            refreshFailedText = text;
+        }
+
+        public String getRefreshFailedText(String text) {
+            return refreshFailedText;
         }
 
         public void setStatusView(View view, PullStateListener listener) {
@@ -1256,12 +1281,18 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
 
         /**
          * Called when the refresh request has been completed
+         *
+         * @param success If true, the refresh request was completed successfully
          */
 
         @Override
-        public void onRequestComplete() {
-            statusText.setText(refreshCompleteText);
-            listener.onRequestComplete();
+        public void onRequestComplete(boolean success) {
+            if (success) {
+                statusText.setText(refreshSuccessText);
+            } else {
+                statusText.setText(refreshFailedText);
+            }
+            listener.onRequestComplete(success);
         }
 
         /**
@@ -1632,13 +1663,15 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
 
         /**
          * Called when a request for refreshing data has been completed
+         *
+         * @param success If true, the refresh request was completed successfully
          */
 
         @Override
-        public void onRequestComplete() {
+        public void onRequestComplete(boolean success) {
             switch (pullState) {
                 case PULL_TOP_WAITING:
-                    parent.onRequestComplete(true);
+                    parent.onRequestComplete(success, true);
                     parent.handler.postDelayed(new Runnable() {
                         @Override
                         public void run() {
@@ -1648,7 +1681,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
                     break;
 
                 case PULL_BOTTOM_WAITING:
-                    parent.onRequestComplete(false);
+                    parent.onRequestComplete(success, false);
                     parent.handler.postDelayed(new Runnable() {
                         @Override
                         public void run() {

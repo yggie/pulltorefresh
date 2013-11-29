@@ -20,11 +20,13 @@
         <attr name="top_pullStartedText" format="string"/>
         <attr name="top_pullThresholdText" format="string"/>
         <attr name="top_refreshingText" format="string"/>
-        <attr name="top_refreshCompleteText" format="string"/>
+        <attr name="top_refreshSuccessText" format="string"/>
+        <attr name="top_refreshFailedText" format="string"/>
         <attr name="bottom_pullStartedText" format="string"/>
         <attr name="bottom_pullThresholdText" format="string"/>
         <attr name="bottom_refreshingText" format="string"/>
-        <attr name="bottom_refreshCompleteText" format="string"/>
+        <attr name="bottom_refreshSuccessText" format="string"/>
+        <attr name="bottom_refreshFailedText" format="string"/>
         <attr name="empty_text" format="string"/>
         <attr name="empty_view" format="reference"/>
         <attr name="top_backgroundColor" format="color"/>
