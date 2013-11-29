@@ -1,0 +1,29 @@
+
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:pulltorefresh="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingBottom="@dimen/activity_vertical_margin"
+    android:paddingLeft="@dimen/activity_horizontal_margin"
+    android:paddingRight="@dimen/activity_horizontal_margin"
+    android:paddingTop="@dimen/activity_vertical_margin"
+    android:background="#ffb"
+    tools:context=".MainActivity" >
+
+    <fragment
+        android:name="com.github.yggie.pulltorefresh.tests.SampleFragment"
+        android:id="@+id/pull_fragment"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        pulltorefresh:list_backgroundColor="@color/pink"
+        pulltorefresh:top_pullStartedText="@string/pull_to_refresh"
+        pulltorefresh:top_pullThresholdText="@string/release_to_refresh"
+        pulltorefresh:top_refreshingText="@string/refreshing"
+        pulltorefresh:top_refreshCompleteText="@string/complete"
+        pulltorefresh:empty_text="@string/wait_for_it"
+        pulltorefresh:top_backgroundColor="@color/cyan"
+        pulltorefresh:bottom_backgroundColor="@color/green"
+        pulltorefresh:top_textColor="@color/white"/>
+
+</RelativeLayout>
