@@ -8,9 +8,11 @@ import java.util.Random;
 
 import android.os.Bundle;
 import android.os.Handler;
+import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 import android.view.Menu;
 import android.widget.BaseAdapter;
+import android.widget.ListAdapter;
 import android.widget.SimpleAdapter;
 
 import com.github.yggie.pulltorefresh.PullListFragment;
@@ -22,22 +24,25 @@ public class MainActivity extends FragmentActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        final PullListFragment pullListFragment = (PullListFragment)getSupportFragmentManager()
-                .findFragmentById(R.id.pull_fragment);
+        if (savedInstanceState == null) {
+            final PullListFragment pullListFragment = (PullListFragment)getSupportFragmentManager()
+                    .findFragmentById(R.id.pull_fragment);
 
-        // TODO fix null pointer exception when orientation changes quickly
-        final Handler handler = new Handler();
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                // populate the ListView with random data
-                final List<Map<String, String>> adapterList = defaultList();
-                final BaseAdapter adapter = new SimpleAdapter(MainActivity.this, adapterList,
-                        R.layout.item, new String[]{"title", "content"},
-                        new int[]{R.id.title, R.id.content});
-                pullListFragment.setListAdapter(adapter);
-            }
-        }, 3000);
+            // populate the ListView with random data
+            final List<Map<String, String>> adapterList = defaultList();
+            final BaseAdapter adapter = new SimpleAdapter(MainActivity.this, adapterList,
+                    R.layout.item, new String[]{"title", "content"},
+                    new int[]{R.id.title, R.id.content});
+
+            // TODO fix null pointer exception when orientation changes quickly
+            final Handler handler = new Handler();
+            handler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    pullListFragment.setListAdapter(adapter);
+                }
+            }, 3000);
+        }
     }
 
     @Override

@@ -30,7 +30,6 @@ import android.content.Context;
 import android.content.res.TypedArray;
 import android.database.DataSetObserver;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.v4.app.Fragment;
@@ -58,6 +57,12 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
 
     /** log identifier */
     public static final String TAG = PullListFragment.class.getSimpleName();
+
+    public static final int ID_LAYOUT       = 1;
+    public static final int ID_LISTVIEW     = 2;
+    public static final int ID_TOPVIEW      = 3;
+    public static final int ID_BOTTOMVIEW   = 4;
+    public static final int ID_EMPTYVIEW    = 5;
 
     private static final int MODE_NONE = 0;
     private static final int MODE_PULL = 1;
@@ -87,6 +92,12 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
     private FrameLayout topPulledView;
     private ListView listView;
     private FrameLayout bottomPulledView;
+
+    /** holds data which will persist through configuration changes */
+    private RetainedFragment retainedFragment;
+
+    /** if true, the list adapter will be retained over configuration changes */
+    private boolean retainListAdapter = true;
 
     /** a handler for posting Runnable */
     private final Handler handler = new Handler();
@@ -121,6 +132,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
 
         // setup the list view
         listView = new CustomListView(this);
+        listView.setId(ID_LISTVIEW);
         final RelativeLayout.LayoutParams listViewParams = new RelativeLayout.LayoutParams(
                 RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT);
         listViewParams.addRule(RelativeLayout.ALIGN_PARENT_TOP, RelativeLayout.TRUE);
@@ -140,6 +152,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
         textView.setText("Nothing to show");
         textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18.0f);
         emptyView = textView;
+        emptyView.setId(ID_EMPTYVIEW);
 
         // setup top pulled view
         final RelativeLayout.LayoutParams topViewParams = new RelativeLayout.LayoutParams(
@@ -152,6 +165,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
         topManager = new DefaultPulledView(this, true);
         topFrameLayout.addView(topManager);
         topPulledView = topFrameLayout;
+        topPulledView.setId(ID_TOPVIEW);
 
         // setup bottom pulled view
         final RelativeLayout.LayoutParams bottomViewParams = new RelativeLayout.LayoutParams(
@@ -164,12 +178,14 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
         bottomManager = new DefaultPulledView(this, false);
         bottomFrameLayout.addView(bottomManager);
         bottomPulledView = bottomFrameLayout;
+        bottomPulledView.setId(ID_BOTTOMVIEW);
 
         layout = new PullToRefreshLayout(this);
         layout.addView(topPulledView);
         layout.addView(bottomPulledView);
         layout.addView(listView);
         layout.addView(emptyView);
+        layout.setId(ID_LAYOUT);
 
         listShown = false;
         listView.setVisibility(View.GONE);
@@ -414,6 +430,33 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
     }
 
     /**
+     * Called when the fragment's activity has been created and this fragment's view hierarchy
+     * instantiated. This implementation ensures the list adapter is properly retained over
+     * configuration changes.
+     *
+     * @param savedInstanceState The saved fragment state, if any
+     */
+
+    @Override
+    public void onActivityCreated(Bundle savedInstanceState) {
+        if (retainListAdapter) {
+            retainedFragment = (RetainedFragment)getActivity()
+                    .getSupportFragmentManager().findFragmentByTag(RetainedFragment.TAG);
+
+            if (retainedFragment == null) {
+                retainedFragment = new RetainedFragment();
+
+                getActivity().getSupportFragmentManager().beginTransaction().add(retainedFragment,
+                        RetainedFragment.TAG).commit();
+            } else if (retainedFragment.getAdapter() != null) {
+                setListAdapter(retainedFragment.getAdapter());
+            }
+        }
+
+        super.onActivityCreated(savedInstanceState);
+    }
+
+    /**
      * Called when the view previously created by
      * {@link #onCreateView(android.view.LayoutInflater, android.view.ViewGroup, android.os.Bundle)}
      * has been detached from the fragment
@@ -522,9 +565,45 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
         if (listView.getAdapter() != null) {
             listView.getAdapter().unregisterDataSetObserver(observer);
         }
+        if (retainedFragment != null) {
+            retainedFragment.setAdapter(adapter);
+        }
         listView.setAdapter(adapter);
         adapter.registerDataSetObserver(observer);
         setListShown(true);
+    }
+
+    /**
+     * Returns true if the list adapter is retained
+     *
+     * @return True if the list adapter is retained
+     */
+
+    public boolean isListAdapterRetained() {
+        return retainListAdapter;
+    }
+
+    /**
+     * Set the behaviour of this fragment, whether the list adapter should be retained over
+     * configuration changes. The default implementation uses a retained fragment to store the
+     * adapter. Default value is true.
+     *
+     * @param retainListAdapter If true, the fragment will persist the adapter over configuration
+     *                          changes
+     */
+
+    public void setRetainListAdapter(boolean retainListAdapter) {
+        if (retainListAdapter && !this.retainListAdapter) {
+            retainedFragment = new RetainedFragment();
+
+            retainedFragment.setAdapter(listView.getAdapter());
+            getActivity().getSupportFragmentManager().beginTransaction().add(retainedFragment,
+                    RetainedFragment.TAG).commit();
+        } else if (!retainListAdapter && retainedFragment != null) {
+            getActivity().getSupportFragmentManager().beginTransaction().remove(retainedFragment).commit();
+            retainedFragment = null;
+        }
+        this.retainListAdapter = retainListAdapter;
     }
 
     /**
@@ -1017,6 +1096,32 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
             return parent.scroller.onTouchEvent(e) || super.onTouchEvent(e);
         }
     }
+
+    private static class RetainedFragment extends Fragment {
+
+        public static final String TAG = RetainedFragment.class.getName();
+
+        private ListAdapter adapter;
+
+        public RetainedFragment() {
+            adapter = null;
+        }
+
+        @Override
+        public void onCreate(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            setRetainInstance(true);
+        }
+
+        public ListAdapter getAdapter() {
+            return adapter;
+        }
+
+        public void setAdapter(ListAdapter adapter) {
+            this.adapter = adapter;
+        }
+    }
+
     /**
      * A convenient class to manage default pulled view behaviour
      */
@@ -1658,7 +1763,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
             }
 
             // for debugging
-            Log.d(TAG, pullState.name() + " current offset = " + totalOffset);
+//            Log.d(TAG, pullState.name() + " current offset = " + totalOffset);
         }
 
         /**
