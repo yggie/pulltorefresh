@@ -9,13 +9,14 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
-import android.view.View;
+import android.util.Log;
+import android.widget.ImageView;
 
 /**
  * Created by bryan on 28/11/13.
  */
 
-public class StatusView extends View implements Runnable, PullListFragment.PullStateListener {
+public class StatusView extends ImageView implements Runnable, PullListFragment.PullStateListener {
 
     private static final int ANIMATION_TICK = 15;
 
@@ -31,6 +32,8 @@ public class StatusView extends View implements Runnable, PullListFragment.PullS
 
     private StatusDrawable drawable;
 
+    private long previousTime;
+
     public StatusView(Context context, boolean isTop) {
         super(context);
         initialize(isTop);
@@ -38,7 +41,14 @@ public class StatusView extends View implements Runnable, PullListFragment.PullS
 
     private void initialize(boolean isTop) {
         drawable = new StatusDrawable(!isTop);
-        setBackgroundDrawable(drawable);
+        setImageDrawable(drawable);
+        previousTime = 0L;
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        handler.removeCallbacks(this);
     }
 
     public void setStrokeColor(int color) {
@@ -60,21 +70,19 @@ public class StatusView extends View implements Runnable, PullListFragment.PullS
     @Override
     public void onPullThreshold(boolean aboveThreshold) {
         drawable.animateToRotationOffset(180.0f);
-        handler.removeCallbacks(this);
-        handler.post(this);
+        start();
     }
 
     @Override
     public void onRefreshRequest() {
         drawable.setState(State.REFRESHING);
         drawable.targetRotation = 180.0f;
-        handler.removeCallbacks(this);
-        handler.post(this);
+        start();
     }
 
     @Override
     public void onRequestComplete(boolean success) {
-        handler.removeCallbacks(this);
+        stop();
         if (success) {
             drawable.setState(State.COMPLETE_SUCCESS);
         } else {
@@ -89,9 +97,23 @@ public class StatusView extends View implements Runnable, PullListFragment.PullS
 
     @Override
     public void run() {
-        if (drawable.animate()) {
+        final long now = System.currentTimeMillis();
+        final int diff = (int)(now - previousTime);
+        if (drawable.animate(diff / ANIMATION_TICK)) {
             handler.postDelayed(this, ANIMATION_TICK);
+            previousTime = now - (long)(diff % ANIMATION_TICK);
         }
+    }
+
+    private void start() {
+        stop();
+        previousTime = System.currentTimeMillis();
+        handler.post(this);
+    }
+
+    private void stop() {
+        handler.removeCallbacks(this);
+        previousTime = 0L;
     }
 
     private class StatusDrawable extends Drawable {
@@ -109,9 +131,9 @@ public class StatusView extends View implements Runnable, PullListFragment.PullS
         private static final float COMPLETE_LARGE_TO_SMALL_EDGE_RATIO = 2.0f;
 
         /** the easing factor used for animations */
-        private static final float EASING = 0.35f;
+        private static final float EASING = 0.25f;
 
-        private static final float REFRESHING_EASING = 0.15f;
+        private static final float REFRESHING_EASING = 0.05f;
 
         /** fields used in the arrow shape computation/rendering */
         private float targetRotation;
@@ -147,7 +169,7 @@ public class StatusView extends View implements Runnable, PullListFragment.PullS
             strokePaint.setAntiAlias(true);
             strokePaint.setStyle(Paint.Style.STROKE);
 
-            state = State.INVISIBLE;
+            setState(State.INVISIBLE);
         }
 
         /**
@@ -295,10 +317,10 @@ public class StatusView extends View implements Runnable, PullListFragment.PullS
             if (this.state == state) {
                 return;
             }
-
             this.state = state;
             setRotation(0.0f);
             updateShape();
+            Log.d("***", "[setState] Set to state " + state.name());
         }
 
         /**
@@ -416,9 +438,23 @@ public class StatusView extends View implements Runnable, PullListFragment.PullS
             }
         }
 
+        public boolean animate(int ticks) {
+            final int num = Math.min(ticks, 10);
+            for (int i = 0; i < num; i++) {
+                if (!animate()) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private int zelo = 0;
+
         public boolean animate() {
             switch (state) {
                 case INVISIBLE:
+                    zelo = 0;
                     break;
 
                 case PULLING:
@@ -433,16 +469,15 @@ public class StatusView extends View implements Runnable, PullListFragment.PullS
                     break;
 
                 case REFRESHING:
-                    if (Math.abs(targetRotation - rotation) < 5.0f) {
+                    if (Math.abs(targetRotation - rotation) < 10.0f) {
                         rotation = targetRotation;
                         targetRotation += 180.0f;
+                        Log.d("***", "Called " + (zelo++));
                     } else {
                         rotation *= (1.0f - REFRESHING_EASING);
                         rotation += targetRotation * REFRESHING_EASING;
-
-                        return true;
                     }
-                    break;
+                    return true;
 
                 case COMPLETE_SUCCESS:
                     break;

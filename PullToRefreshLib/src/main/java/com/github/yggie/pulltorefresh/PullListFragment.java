@@ -105,7 +105,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
     private static final Handler handler = new Handler();
 
     /** handles scrolling behaviour */
-    private final PullEffectScroller scroller = new PullEffectScroller(this);
+    private PullEffectScroller scroller;
 
     /** the accumulated offset for the views */
     private int accumulatedOffset = 0;
@@ -118,6 +118,19 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
 
     /** The dataset observer to monitor changes in the adapter data */
     private final DataSetObserver observer = new CustomDataSetObserver();
+
+    /**
+     * Called to do initial creation of a fragment
+     *
+     * @param savedInstanceState The saved fragment state, if any
+     */
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        scroller = new PullEffectScroller(this);
+    }
 
     /**
      * Called to do initial creation of the fragment. Creates all the Views in code
@@ -426,8 +439,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // initialize the scroller (requires parent to be ready)
-        scroller.initialize();
+        // restoreSavedInstanceState the scroller (requires parent to be ready)
         listView.setOnScrollListener(this);
     }
 
@@ -456,6 +468,24 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
         }
 
         super.onActivityCreated(savedInstanceState);
+
+        if (savedInstanceState != null) {
+            scroller.restoreSavedInstanceState(savedInstanceState);
+        }
+    }
+
+    /**
+     * Called to ask the fragment to save its current dynamic state, so it can later be
+     * reconstructed in a new instance if its process is restarted
+     *
+     * @param outState The saved instance state
+     */
+
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+
+        scroller.onSaveInstanceState(outState);
     }
 
     /**
@@ -466,13 +496,25 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
 
     @Override
     public void onDestroyView() {
+        super.onDestroyView();
         bottomManager = null;
         topManager = null;
         listView = null;
         layout = null;
         topPulledView = null;
         bottomPulledView = null;
-        super.onDestroyView();
+    }
+
+    /**
+     * Called when the fragment is no longer in use
+     */
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+
+        scroller.stop();
+        scroller = null;
     }
 
     /**
@@ -483,7 +525,9 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
 
     private void setPullOffset(int offset) {
         accumulatedOffset += offset;
-        layout.postInvalidate();
+        if (layout != null) {
+            layout.postInvalidate();
+        }
     }
 
     /**
@@ -492,7 +536,9 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
 
     private void undoPullOffset() {
         setPullOffset(-accumulatedOffset);
-        layout.postInvalidate();
+        if (layout != null) {
+            layout.postInvalidate();
+        }
     }
 
     /**
@@ -864,6 +910,8 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
         } else if (bottomManager != null) {
             bottomManager.onPullStarted();
         }
+
+        Log.d(TAG, "[onPullStarted]");
     }
 
     /**
@@ -881,6 +929,8 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
         } else if (bottomManager != null) {
             bottomManager.onPullThreshold(previousState == PullState.PULL_BOTTOM);
         }
+
+        Log.d(TAG, "[onPullThreshold]");
     }
 
     /**
@@ -889,18 +939,29 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
      *
      * Default behaviour updates the default views if they are in use
      *
-     * @param listener The listener which will respond to the request completion
      * @param previousState The previous pull state
      * @param isTop If true, the top view is begin pulled
+     * @param fromRestoredState If true, If true, the state is set from a previously restored state
      */
 
-    protected void onRefreshRequest(OnRequestCompleteListener listener, PullState previousState,
-                                    boolean isTop) {
+    protected void onRefreshRequest(PullState previousState, boolean isTop, boolean fromRestoredState) {
         if (isTop) {
             if (topManager != null) topManager.onRefreshRequest();
         } else if (bottomManager != null) {
             bottomManager.onRefreshRequest();
         }
+
+        Log.d(TAG, "[onRefreshRequest]");
+    }
+
+    /**
+     * Call this method when the request has been completed
+     *
+     * @param success If true, the refresh request was completed successfully
+     */
+
+    public final void requestComplete(boolean success) {
+        scroller.onRequestComplete(success);
     }
 
     /**
@@ -918,6 +979,8 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
         } else if (bottomManager != null) {
             bottomManager.onRequestComplete(success);
         }
+
+        Log.d(TAG, "[onRequestComplete]");
     }
 
     /**
@@ -927,14 +990,17 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
      *
      * @param previousState The previous pull state
      * @param isTop If true, the top view is begin pulled
+     * @param fromRestoredState If true, If true, the state is set from a previously restored state
      */
 
-    protected void onPullEnd(PullState previousState, boolean isTop) {
+    protected void onPullEnd(PullState previousState, boolean isTop, boolean fromRestoredState) {
         if (isTop) {
             if (topManager != null) topManager.onPullEnd();
         } else if (bottomManager != null) {
             bottomManager.onPullEnd();
         }
+
+        Log.d(TAG, "[onPullEnd]");
     }
 
     /**
@@ -1011,14 +1077,6 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
     }
 
     /**
-     * When a refresh is requested, this listener waits for the results to complete
-     */
-
-    public static interface OnRequestCompleteListener {
-        public void onRequestComplete(boolean success);
-    }
-
-    /**
      * A custom DataSetObserver which listens to changes in the list size
      */
 
@@ -1090,12 +1148,18 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
         @Override
         protected void onOverScrolled(int scrollX, int scrollY, boolean clampedX, boolean clampedY) {
             super.onOverScrolled(scrollX, scrollY, clampedX, clampedY);
-            parent.scroller.onOverScrolled(clampedY);
+            if (parent.scroller != null) {
+                parent.scroller.onOverScrolled(clampedY);
+            }
         }
 
         @Override
         public boolean onTouchEvent(MotionEvent e) {
-            return parent.scroller.onTouchEvent(e) || super.onTouchEvent(e);
+            if (parent.scroller != null) {
+                return parent.scroller.onTouchEvent(e) || super.onTouchEvent(e);
+            } else {
+                return super.onTouchEvent(e);
+            }
         }
     }
 
@@ -1390,10 +1454,11 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
      * This class implements the over-scrolling behaviour of the ListView
      */
 
-    public static class PullEffectScroller implements Runnable,
-            PullListFragment.OnRequestCompleteListener, AbsListView.OnScrollListener {
+    public static class PullEffectScroller implements Runnable, AbsListView.OnScrollListener {
 
         private static final String TAG = PullEffectScroller.class.getSimpleName();
+
+        private static final String KEY_CURRENT_STATE = "pullEffect:key:currentState";
 
         private static final float OVER_SCROLL_THRESHOLD = 2.0f;
 
@@ -1410,6 +1475,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
         private float oldY;
         private float damping;
         private float easing;
+        private long previousTime;
 
         /** specific to top pull behaviour */
         private boolean allowTopPull;
@@ -1450,21 +1516,41 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
             bottomPullEnabled = true;
             allowTopPull = true;
             allowBottomPull = true;
+            previousTime = 0L;
 
             // default scrolling parameters
             damping = 0.01f;
             easing = 0.7f;
             delay = 1000;
-            pullState = PullState.NORMAL; // avoids a silly null pointer exception later
+            pullState = PullState.NORMAL;
+        }
+
+        /**
+         * Called when the state of the scroller needs to be saved
+         *
+         * @param outState The saved instance state
+         */
+
+        public void onSaveInstanceState(Bundle outState) {
+            if (outState != null) {
+                outState.putInt(KEY_CURRENT_STATE, pullState.ordinal());
+            }
         }
 
         /**
          * Initializes the pullState of the scroller
          */
 
-        private void initialize() {
-            // scrolling pullState
-            setPullState(PullState.NORMAL);
+        private void restoreSavedInstanceState(Bundle savedInstanceState) {
+            if (savedInstanceState != null) {
+                final int stateOrdinal = savedInstanceState.getInt(KEY_CURRENT_STATE,
+                        PullState.NORMAL.ordinal());
+
+                setPullState(PullState.values()[stateOrdinal], true, false);
+            } else {
+                // scrolling pullState
+                setPullState(PullState.NORMAL);
+            }
         }
 
         /**
@@ -1608,6 +1694,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
         private void onTopPulledViewLayout(final View topPulledView) {
             topMaxLength = (float)topPulledView.getHeight();
             topContentSize = topPulledView.getHeight() - topPulledView.getPaddingTop();
+            setPullState(pullState, false, true);
         }
 
         /**
@@ -1619,6 +1706,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
         private void onBottomPulledViewLayout(final View bottomPulledView) {
             bottomMaxLength = (float)bottomPulledView.getHeight();
             bottomContentSize = bottomPulledView.getHeight() - bottomPulledView.getPaddingBottom();
+            setPullState(pullState, false, true);
         }
 
         /**
@@ -1644,18 +1732,42 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
                     break;
 
                 default:
-                    Log.wtf(TAG, "[.recomputeTravel] unhandled pullState: " + pullState.name());
+                    Log.wtf(TAG, "[recomputeTravel] unhandled pullState: " + pullState.name());
                     break;
             }
+        }
+
+        /**
+         * Method override which defaults the fromRestoredState to false
+         *
+         * @param pullState The new scrolling pullState
+         */
+
+        private void setPullState(final PullState pullState) {
+            setPullState(pullState, false, false);
         }
 
         /**
          * Sets the pullState and calls other code for pullState changes
          *
          * @param pullState The new scrolling pullState
+         * @param fromRestoredState If true, the state is set from a previously restored state
+         * @param fromLayout If true, this was called from a layout event
          */
 
-        private void setPullState(final PullState pullState) {
+        private void setPullState(final PullState pullState, final boolean fromRestoredState,
+                                  final boolean fromLayout) {
+            if (fromRestoredState) {
+                switch (pullState) {
+                    case PULL_TOP:
+                    case PULL_BOTTOM:
+                    case PULL_TOP_THRESHOLD:
+                    case PULL_BOTTOM_THRESHOLD:
+                        setPullState(PullState.NORMAL);
+                        return;
+                }
+            }
+
             final PullState oldPullState = this.pullState;
             this.pullState = pullState;
 
@@ -1664,12 +1776,20 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
                     switch (oldPullState) {
                         case PULL_TOP:
                         case PULL_TOP_RELEASED:
-                            parent.onPullEnd(oldPullState, true);
+                            if (!fromLayout) {
+                                parent.onPullEnd(oldPullState, true, fromRestoredState);
+                            }
                             break;
 
                         case PULL_BOTTOM:
                         case PULL_BOTTOM_RELEASED:
-                            parent.onPullEnd(oldPullState, false);
+                            if (!fromLayout) {
+                                parent.onPullEnd(oldPullState, false, fromRestoredState);
+                            }
+                            break;
+
+                        case NORMAL:
+                            // happens during initialization
                             break;
 
                         default:
@@ -1685,34 +1805,44 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
                     break;
 
                 case PULL_TOP:
-                    if (oldPullState == PullState.NORMAL) {
-                        parent.onPullStarted(oldPullState, true);
-                    } else if (oldPullState == PullState.PULL_TOP_THRESHOLD) {
-                        parent.onPullThreshold(oldPullState, true);
+                    if (!fromLayout) {
+                        if (oldPullState == PullState.NORMAL) {
+                            parent.onPullStarted(oldPullState, true);
+                        } else if (oldPullState == PullState.PULL_TOP_THRESHOLD) {
+                            parent.onPullThreshold(oldPullState, true);
+                        }
                     }
                     break;
 
                 case PULL_TOP_THRESHOLD:
-                    parent.onPullThreshold(oldPullState, true);
+                    if (!fromLayout) {
+                        parent.onPullThreshold(oldPullState, true);
+                    }
                     break;
 
                 case PULL_BOTTOM:
-                    if (oldPullState == PullState.NORMAL) {
-                        parent.onPullStarted(oldPullState, false);
-                    } else if (oldPullState == PullState.PULL_BOTTOM_THRESHOLD) {
-                        parent.onPullThreshold(oldPullState, false);
+                    if (!fromLayout) {
+                        if (oldPullState == PullState.NORMAL) {
+                            parent.onPullStarted(oldPullState, false);
+                        } else if (oldPullState == PullState.PULL_BOTTOM_THRESHOLD) {
+                            parent.onPullThreshold(oldPullState, false);
+                        }
                     }
                     break;
 
                 case PULL_BOTTOM_THRESHOLD:
-                    parent.onPullThreshold(oldPullState, false);
+                    if (!fromLayout) {
+                        parent.onPullThreshold(oldPullState, false);
+                    }
                     break;
 
                 case PULL_TOP_RELEASED:
                 case PULL_TOP_THRESHOLD_RELEASED:
                 case PULL_BOTTOM_RELEASED:
                 case PULL_BOTTOM_THRESHOLD_RELEASED:
-                    start();
+                    if (!fromLayout) {
+                        start();
+                    }
                     break;
 
                 case PULL_TOP_WAITING:
@@ -1721,7 +1851,9 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
                     previousIntOffset = topContentSize;
                     totalOffset = topContentSize;
                     recomputeTravel();
-                    parent.onRefreshRequest(this, oldPullState, true);
+                    if (!fromLayout) {
+                        parent.onRefreshRequest(oldPullState, true, fromRestoredState);
+                    }
                     break;
 
                 case PULL_BOTTOM_WAITING:
@@ -1730,7 +1862,9 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
                     previousIntOffset = -bottomContentSize;
                     totalOffset = -bottomContentSize;
                     recomputeTravel();
-                    parent.onRefreshRequest(this, oldPullState, false);
+                    if (!fromLayout) {
+                        parent.onRefreshRequest(oldPullState, false, fromRestoredState);
+                    }
                     break;
 
                 default:
@@ -1748,7 +1882,6 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
          * @param success If true, the refresh request was completed successfully
          */
 
-        @Override
         public void onRequestComplete(boolean success) {
             switch (pullState) {
                 case PULL_TOP_WAITING:
@@ -1933,6 +2066,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
 
         private void start() {
             stop();
+            previousTime = System.currentTimeMillis();
             PullListFragment.handler.post(this);
         }
 
@@ -1942,14 +2076,34 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
 
         private void stop() {
             PullListFragment.handler.removeCallbacks(this);
+            previousTime = 0L;
+        }
+
+        /**
+         * Calls each step of the release animation, trying to maintain a consistent animation by
+         * tracking the times between each call
+         */
+
+        @Override
+        public void run() {
+            final long now = System.currentTimeMillis();
+            final int diff = (int)(now - previousTime);
+            final int num = Math.min(diff / ANIMATION_WAIT, 10);
+            for (int i = 0; i < num; i++) {
+                if (!animate()) {
+                    return;
+                }
+            }
+
+            previousTime = now - (long)(diff % ANIMATION_WAIT);
+            PullListFragment.handler.postDelayed(this, ANIMATION_WAIT);
         }
 
         /**
          * Runs each step of the release animation
          */
 
-        @Override
-        public void run() {
+        private boolean animate() {
             switch (pullState) {
                 case PULL_TOP_RELEASED:
                 case PULL_BOTTOM_RELEASED:
@@ -1960,8 +2114,8 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
                         // easing back to position
                         totalOffset *= easing;
 
-                        parent.setPullOffset((int)totalOffset - previousIntOffset);
-                        PullListFragment.handler.postDelayed(this, ANIMATION_WAIT);
+                        parent.setPullOffset((int) totalOffset - previousIntOffset);
+                        return true;
                     }
                     break;
 
@@ -1974,8 +2128,8 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
                         totalOffset *= easing;
                         totalOffset += (1 - easing) * topContentSize;
 
-                        parent.setPullOffset((int)totalOffset - previousIntOffset);
-                        PullListFragment.handler.postDelayed(this, ANIMATION_WAIT);
+                        parent.setPullOffset((int) totalOffset - previousIntOffset);
+                        return true;
                     }
                     break;
 
@@ -1988,8 +2142,8 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
                         totalOffset *= easing;
                         totalOffset += (1 - easing) * -bottomContentSize;
 
-                        parent.setPullOffset((int)totalOffset - previousIntOffset);
-                        PullListFragment.handler.postDelayed(this, ANIMATION_WAIT);
+                        parent.setPullOffset((int) totalOffset - previousIntOffset);
+                        return true;
                     }
                     break;
 
@@ -1997,6 +2151,8 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
                     Log.wtf(TAG, "[run] Illegal pullState in running method: " + pullState.name());
                     break;
             }
+
+            return false;
         }
     }
 }

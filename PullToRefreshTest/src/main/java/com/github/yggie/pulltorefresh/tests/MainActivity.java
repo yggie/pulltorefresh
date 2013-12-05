@@ -25,9 +25,6 @@ public class MainActivity extends FragmentActivity {
         setContentView(R.layout.activity_main);
 
         if (savedInstanceState == null) {
-            final PullListFragment pullListFragment = (PullListFragment)getSupportFragmentManager()
-                    .findFragmentById(R.id.pull_fragment);
-
             // populate the ListView with random data
             final List<Map<String, String>> adapterList = defaultList();
             final BaseAdapter adapter = new SimpleAdapter(MainActivity.this, adapterList,
@@ -39,7 +36,12 @@ public class MainActivity extends FragmentActivity {
             handler.postDelayed(new Runnable() {
                 @Override
                 public void run() {
-                    pullListFragment.setListAdapter(adapter);
+                    final PullListFragment pullListFragment = (PullListFragment)getSupportFragmentManager()
+                            .findFragmentById(R.id.pull_fragment);
+
+                    if (pullListFragment != null) {
+                        pullListFragment.setListAdapter(adapter);
+                    }
                 }
             }, 3000);
         }
