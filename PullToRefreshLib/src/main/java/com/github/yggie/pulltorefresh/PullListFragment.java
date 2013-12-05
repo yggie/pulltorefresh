@@ -1757,6 +1757,9 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
 
         private void setPullState(final PullState pullState, final boolean fromRestoredState,
                                   final boolean fromLayout) {
+            final PullState oldPullState = this.pullState;
+            this.pullState = pullState;
+
             if (fromRestoredState) {
                 switch (pullState) {
                     case PULL_TOP:
@@ -1765,11 +1768,12 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
                     case PULL_BOTTOM_THRESHOLD:
                         setPullState(PullState.NORMAL);
                         return;
+
+                    default:
+                        // do nothing
+                        break;
                 }
             }
-
-            final PullState oldPullState = this.pullState;
-            this.pullState = pullState;
 
             switch (pullState) {
                 case NORMAL:
