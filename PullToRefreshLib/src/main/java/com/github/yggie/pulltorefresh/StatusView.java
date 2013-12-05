@@ -8,7 +8,7 @@ import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
-import android.support.v4.view.ViewCompat;
+import android.os.Handler;
 import android.view.View;
 
 /**
@@ -16,6 +16,10 @@ import android.view.View;
  */
 
 public class StatusView extends View implements Runnable, PullListFragment.PullStateListener {
+
+    private static final int ANIMATION_TICK = 15;
+
+    private static final Handler handler = new Handler();
 
     private enum State {
         INVISIBLE,
@@ -56,18 +60,21 @@ public class StatusView extends View implements Runnable, PullListFragment.PullS
     @Override
     public void onPullThreshold(boolean aboveThreshold) {
         drawable.animateToRotationOffset(180.0f);
-        ViewCompat.postOnAnimation(this, this);
+        handler.removeCallbacks(this);
+        handler.post(this);
     }
 
     @Override
     public void onRefreshRequest() {
         drawable.setState(State.REFRESHING);
         drawable.targetRotation = 180.0f;
-        ViewCompat.postOnAnimation(this, this);
+        handler.removeCallbacks(this);
+        handler.post(this);
     }
 
     @Override
     public void onRequestComplete(boolean success) {
+        handler.removeCallbacks(this);
         if (success) {
             drawable.setState(State.COMPLETE_SUCCESS);
         } else {
@@ -83,7 +90,7 @@ public class StatusView extends View implements Runnable, PullListFragment.PullS
     @Override
     public void run() {
         if (drawable.animate()) {
-            ViewCompat.postOnAnimation(this, this);
+            handler.postDelayed(this, ANIMATION_TICK);
         }
     }
 
@@ -102,9 +109,9 @@ public class StatusView extends View implements Runnable, PullListFragment.PullS
         private static final float COMPLETE_LARGE_TO_SMALL_EDGE_RATIO = 2.0f;
 
         /** the easing factor used for animations */
-        private static final float EASING = 0.3f;
+        private static final float EASING = 0.35f;
 
-        private static final float REFRESHING_EASING = 0.1f;
+        private static final float REFRESHING_EASING = 0.15f;
 
         /** fields used in the arrow shape computation/rendering */
         private float targetRotation;

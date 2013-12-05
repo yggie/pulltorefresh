@@ -58,12 +58,14 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
     /** log identifier */
     public static final String TAG = PullListFragment.class.getSimpleName();
 
+    /** manually state ids for this view hierarchy */
     public static final int ID_LAYOUT       = 1;
-    public static final int ID_LISTVIEW     = 2;
-    public static final int ID_TOPVIEW      = 3;
-    public static final int ID_BOTTOMVIEW   = 4;
-    public static final int ID_EMPTYVIEW    = 5;
+    public static final int ID_LIST_VIEW    = 2;
+    public static final int ID_TOP_VIEW     = 3;
+    public static final int ID_BOTTOM_VIEW  = 4;
+    public static final int ID_EMPTY_VIEW   = 5;
 
+    /** different modes of operation */
     private static final int MODE_NONE = 0;
     private static final int MODE_PULL = 1;
 
@@ -100,7 +102,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
     private boolean retainListAdapter = true;
 
     /** a handler for posting Runnable */
-    private final Handler handler = new Handler();
+    private static final Handler handler = new Handler();
 
     /** handles scrolling behaviour */
     private final PullEffectScroller scroller = new PullEffectScroller(this);
@@ -132,7 +134,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
 
         // setup the list view
         listView = new CustomListView(this);
-        listView.setId(ID_LISTVIEW);
+        listView.setId(ID_LIST_VIEW);
         final RelativeLayout.LayoutParams listViewParams = new RelativeLayout.LayoutParams(
                 RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT);
         listViewParams.addRule(RelativeLayout.ALIGN_PARENT_TOP, RelativeLayout.TRUE);
@@ -152,7 +154,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
         textView.setText("Nothing to show");
         textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18.0f);
         emptyView = textView;
-        emptyView.setId(ID_EMPTYVIEW);
+        emptyView.setId(ID_EMPTY_VIEW);
 
         // setup top pulled view
         final RelativeLayout.LayoutParams topViewParams = new RelativeLayout.LayoutParams(
@@ -165,7 +167,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
         topManager = new DefaultPulledView(this, true);
         topFrameLayout.addView(topManager);
         topPulledView = topFrameLayout;
-        topPulledView.setId(ID_TOPVIEW);
+        topPulledView.setId(ID_TOP_VIEW);
 
         // setup bottom pulled view
         final RelativeLayout.LayoutParams bottomViewParams = new RelativeLayout.LayoutParams(
@@ -178,7 +180,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
         bottomManager = new DefaultPulledView(this, false);
         bottomFrameLayout.addView(bottomManager);
         bottomPulledView = bottomFrameLayout;
-        bottomPulledView.setId(ID_BOTTOMVIEW);
+        bottomPulledView.setId(ID_BOTTOM_VIEW);
 
         layout = new PullToRefreshLayout(this);
         layout.addView(topPulledView);
@@ -1269,16 +1271,6 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
         }
 
         /**
-         * Changes the pull started event text defined by the resource id given
-         *
-         * @param id The resource id
-         */
-
-        public void setPullStartedText(int id) {
-            pullStartedText = getResources().getString(id);
-        }
-
-        /**
          * Changes the pull started event text to the given value
          *
          * @param text The text to use
@@ -1292,20 +1284,12 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
             return pullStartedText;
         }
 
-        public void setPullThresholdText(int id) {
-            pullThresholdText = getResources().getString(id);
-        }
-
         public void setPullThresholdText(String text) {
             pullThresholdText = text;
         }
 
         public String getPullThresholdText() {
             return pullThresholdText;
-        }
-
-        public void setRefreshingText(int resId) {
-            refreshingText = getResources().getString(resId);
         }
 
         public void setRefreshingText(String text) {
@@ -1316,10 +1300,6 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
             return refreshingText;
         }
 
-        public void setRefreshSuccessText(int resId) {
-            refreshSuccessText = getResources().getString(resId);
-        }
-
         public void setRefreshSuccessText(String text) {
             refreshSuccessText = text;
         }
@@ -1328,15 +1308,11 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
             return refreshSuccessText;
         }
 
-        public void setRefreshFailedText(int resId) {
-            refreshFailedText = getResources().getString(resId);
-        }
-
         public void setRefreshFailedText(String text) {
             refreshFailedText = text;
         }
 
-        public String getRefreshFailedText(String text) {
+        public String getRefreshFailedText() {
             return refreshFailedText;
         }
 
@@ -1777,7 +1753,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
             switch (pullState) {
                 case PULL_TOP_WAITING:
                     parent.onRequestComplete(success, true);
-                    parent.handler.postDelayed(new Runnable() {
+                    PullListFragment.handler.postDelayed(new Runnable() {
                         @Override
                         public void run() {
                             setPullState(PullState.PULL_TOP_RELEASED);
@@ -1787,7 +1763,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
 
                 case PULL_BOTTOM_WAITING:
                     parent.onRequestComplete(success, false);
-                    parent.handler.postDelayed(new Runnable() {
+                    PullListFragment.handler.postDelayed(new Runnable() {
                         @Override
                         public void run() {
                             setPullState(PullState.PULL_BOTTOM_RELEASED);
@@ -1956,7 +1932,8 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
          */
 
         private void start() {
-            parent.handler.post(this);
+            stop();
+            PullListFragment.handler.post(this);
         }
 
         /**
@@ -1964,7 +1941,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
          */
 
         private void stop() {
-            parent.handler.removeCallbacks(this);
+            PullListFragment.handler.removeCallbacks(this);
         }
 
         /**
@@ -1984,7 +1961,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
                         totalOffset *= easing;
 
                         parent.setPullOffset((int)totalOffset - previousIntOffset);
-                        parent.handler.postDelayed(this, ANIMATION_WAIT);
+                        PullListFragment.handler.postDelayed(this, ANIMATION_WAIT);
                     }
                     break;
 
@@ -1998,7 +1975,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
                         totalOffset += (1 - easing) * topContentSize;
 
                         parent.setPullOffset((int)totalOffset - previousIntOffset);
-                        parent.handler.postDelayed(this, ANIMATION_WAIT);
+                        PullListFragment.handler.postDelayed(this, ANIMATION_WAIT);
                     }
                     break;
 
@@ -2012,7 +1989,7 @@ public class PullListFragment extends Fragment implements AbsListView.OnScrollLi
                         totalOffset += (1 - easing) * -bottomContentSize;
 
                         parent.setPullOffset((int)totalOffset - previousIntOffset);
-                        parent.handler.postDelayed(this, ANIMATION_WAIT);
+                        PullListFragment.handler.postDelayed(this, ANIMATION_WAIT);
                     }
                     break;
 
